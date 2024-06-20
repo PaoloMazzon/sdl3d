@@ -2,6 +2,8 @@
 #include <SDL2/SDL.h>
 #include <cglm/cglm.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <time.h>
 
 //----------------- CONSTANTS -----------------//
 const int WINDOW_WIDTH = 800;
@@ -62,6 +64,14 @@ void* _sgCheckMem(void *mem, int line) {
     return mem;
 }
 
+float clamp(float val, float min, float max) {
+    return val < min ? min : (val > max ? max : val);
+}
+
+float random() {
+    return (float)(rand() % 10000) / 10000.0f;
+}
+
 //----------------- TRIANGLE LIST METHODS -----------------//
 void sgTriangleListEmpty(sgTriangleList *list) {
     list->count = 0;
@@ -106,25 +116,34 @@ SGReturnType sgGameStart(sgGameState state) {
     state->camera.eyes[0] = -10;
     state->camera.eyes[1] = -10;
     state->camera.eyes[2] = 4;
-    state->camera.rotation = 0;
-    state->camera.rotationZ = -0.2;
+    state->camera.rotation = 3.141592635 / 4;
+    state->camera.rotationZ = -0.278;
 }
 
 // Called before 3D geometry is drawn
 SGReturnType sgGameUpdate(sgGameState state) {
     // A small test model
     const float size = 1;
-    sgVertex v1 = {{-size, -size, 0}};
-    sgVertex v2 = {{size, -size, 0}};
-    sgVertex v3 = {{-size, size, 0}};
-    sgVertex v4 = {{size, -size, 0}};
-    sgVertex v5 = {{size, size, 0}};
-    sgVertex v6 = {{-size, size, 0}};
+    sgVertex v1 = {{-size, -size, 0, 1}};
+    sgVertex v2 = {{size, -size, 0, 1}};
+    sgVertex v3 = {{-size, size, 0, 1}};
+    sgVertex v4 = {{size, -size, 0, 1}};
+    sgVertex v5 = {{size, size, 0, 1}};
+    sgVertex v6 = {{-size, size, 0, 1}};
     sgVertex vl[] = {v1, v2, v3, v4, v5, v6};
     mat4 model = {0};
     glm_mat4_identity(model);
     glm_rotate_z(model, state->time, model);
     sgTriangleListAddObject(&state->triangleList, vl, 6, model);
+
+    // Move camera
+    int x, y;
+    SDL_GetRelativeMouseState(&x, &y);
+    state->camera.eyes[0] -= state->delta;//(float)x * 0.001;
+    state->camera.eyes[1] -= state->delta;//(float)y * 0.001;
+    state->camera.rotation -= (float)x * 0.0005;
+    state->camera.rotationZ += (float)y * 0.0005;
+    state->camera.rotationZ = clamp(state->camera.rotationZ, (-3.14159 / 2) + 0.01, (3.14159 / 2) - 0.01);
 }
 
 // Called after 3D geometry is drawn
@@ -152,6 +171,8 @@ int main(int argc, char *argv[]) {
         -1,
         SDL_RENDERER_TARGETTEXTURE | SDL_RENDERER_PRESENTVSYNC
     );
+    SDL_SetRelativeMouseMode(true);
+    srand(time(NULL));
 
     // Timekeeping
     Uint64 startTicks = SDL_GetPerformanceCounter();
@@ -161,8 +182,7 @@ int main(int argc, char *argv[]) {
 
     // Rendering
     mat4 perspective = {0};
-    mat4 view = {0};
-    glm_perspective(300 * (3.141592635 / 360.0), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1, 10, perspective);
+    glm_perspective(glm_rad(90), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1, 100, perspective);
 
     // Initialize game
     sgGameState state = sgCheckMem(calloc(1, sizeof(struct sgGameState_t)));
@@ -190,23 +210,27 @@ int main(int argc, char *argv[]) {
         sgCheckReturn(sgGameUpdate(state));
 
         // Setup view matrix
-        vec3 center = {
-            state->camera.eyes[0] + cos(state->camera.rotation),
-            state->camera.eyes[1] + sin(state->camera.rotation),
-            state->camera.eyes[2] + tan(state->camera.rotationZ)
+        vec3 dir = {
+            cos(state->camera.rotation),
+            sin(state->camera.rotation),
+            tan(state->camera.rotationZ)
         };
-        center[0] = 0;
-        center[1] = 0;
-        center[2] = 0;
         vec3 up = {0, 0, 1};
-        glm_lookat(state->camera.eyes, center, up, view);
+        mat4 view = {0};
+        glm_look(state->camera.eyes, dir, up, view);
+        printf("[%.2f, %.2f, %.2f, %.2f]\n", view[0][0], view[0][1], view[0][2], view[0][3]);
+        printf("[%.2f, %.2f, %.2f, %.2f]\n", view[1][0], view[1][1], view[1][2], view[1][3]);
+        printf("[%.2f, %.2f, %.2f, %.2f]\n", view[2][0], view[2][1], view[2][2], view[2][3]);
+        printf("[%.2f, %.2f, %.2f, %.2f]\n", view[3][0], view[3][1], view[3][2], view[3][3]);
+        printf("\n");
+        fflush(stdout);
 
         // Convert triangle list to SDL_Vertex list
-        vec4 pos;
+        mat4 vp = {0};
+        vec4 pos = {0, 0, 0, 1};
+        glm_mat4_mul(perspective, view, vp);
         for (int i = 0; i < state->triangleList.count; i++) {
-            glm_mat4_mulv(view, state->triangleList.vertices[i].position, pos);
-            glm_mat4_mulv(perspective, pos, pos);
-            printf("pos = {%.2f, %.2f, %.2f, %.2f};\n", pos[0], pos[1], pos[2], pos[3]);
+            glm_mat4_mulv(vp, state->triangleList.vertices[i].position, pos);
             state->triangleList.verticesSDL[i].position.x = (WINDOW_WIDTH / 2) + (pos[0] * (WINDOW_WIDTH / 2));
             state->triangleList.verticesSDL[i].position.y = (WINDOW_HEIGHT / 2) + (pos[1] * (WINDOW_HEIGHT / 2));
             state->triangleList.verticesSDL[i].tex_coord.x = state->triangleList.vertices[i].uv[0];
