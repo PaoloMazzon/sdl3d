@@ -63,13 +63,17 @@ void* _sgCheckMem(void *mem, int line) {
 }
 
 //----------------- TRIANGLE LIST METHODS -----------------//
-void sgTriangleListReset(sgTriangleList *list) {
+void sgTriangleListEmpty(sgTriangleList *list) {
     list->count = 0;
     list->size = 0;
     free(list->vertices);
     list->vertices = NULL;
     free(list->verticesSDL);
     list->verticesSDL = NULL;
+}
+
+void sgTriangleListReset(sgTriangleList *list) {
+    list->count = 0;
 }
 
 // Guarantees the list has at least this much extra capacity size
@@ -98,24 +102,34 @@ void sgTriangleListAddObject(sgTriangleList *list, sgVertex *vertices, int count
 
 //----------------- GAME METHODS -----------------//
 SGReturnType sgGameStart(sgGameState state) {
-
+    // Setup camera
+    state->camera.eyes[0] = -10;
+    state->camera.eyes[1] = -10;
+    state->camera.eyes[2] = 4;
+    state->camera.rotation = 0;
+    state->camera.rotationZ = -0.2;
 }
 
 // Called before 3D geometry is drawn
 SGReturnType sgGameUpdate(sgGameState state) {
-    SDL_Rect rect = {
-        .x = ((WINDOW_WIDTH / 2) + (cos(state->time) * 100)) - 15,
-        .y = ((WINDOW_HEIGHT / 2) + (sin(state->time) * 100)) - 15,
-        .w = 30,
-        .h = 30
-    };
-    SDL_SetRenderDrawColor(state->renderer, 0, 0, 0, 255);
-    SDL_RenderFillRect(state->renderer, &rect);
+    // A small test model
+    const float size = 1;
+    sgVertex v1 = {{-size, -size, 0}};
+    sgVertex v2 = {{size, -size, 0}};
+    sgVertex v3 = {{-size, size, 0}};
+    sgVertex v4 = {{size, -size, 0}};
+    sgVertex v5 = {{size, size, 0}};
+    sgVertex v6 = {{-size, size, 0}};
+    sgVertex vl[] = {v1, v2, v3, v4, v5, v6};
+    mat4 model = {0};
+    glm_mat4_identity(model);
+    glm_rotate_z(model, state->time, model);
+    sgTriangleListAddObject(&state->triangleList, vl, 6, model);
 }
 
 // Called after 3D geometry is drawn
 SGReturnType sgGameDraw(sgGameState state) {
-
+    sgTriangleListReset(&state->triangleList);
 }
 
 SGReturnType sgGameEnd(sgGameState state) {
@@ -146,9 +160,9 @@ int main(int argc, char *argv[]) {
     double frameCount = 0;
 
     // Rendering
-    mat4 perspective;
-    mat4 view;
-    glm_perspective(1.22, (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1, 10, perspective);
+    mat4 perspective = {0};
+    mat4 view = {0};
+    glm_perspective(300 * (3.141592635 / 360.0), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1, 10, perspective);
 
     // Initialize game
     sgGameState state = sgCheckMem(calloc(1, sizeof(struct sgGameState_t)));
@@ -181,6 +195,9 @@ int main(int argc, char *argv[]) {
             state->camera.eyes[1] + sin(state->camera.rotation),
             state->camera.eyes[2] + tan(state->camera.rotationZ)
         };
+        center[0] = 0;
+        center[1] = 0;
+        center[2] = 0;
         vec3 up = {0, 0, 1};
         glm_lookat(state->camera.eyes, center, up, view);
 
@@ -189,13 +206,14 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < state->triangleList.count; i++) {
             glm_mat4_mulv(view, state->triangleList.vertices[i].position, pos);
             glm_mat4_mulv(perspective, pos, pos);
+            printf("pos = {%.2f, %.2f, %.2f, %.2f};\n", pos[0], pos[1], pos[2], pos[3]);
             state->triangleList.verticesSDL[i].position.x = (WINDOW_WIDTH / 2) + (pos[0] * (WINDOW_WIDTH / 2));
-            state->triangleList.verticesSDL[i].position.x = (WINDOW_HEIGHT / 2) + (pos[1] * (WINDOW_HEIGHT / 2));
+            state->triangleList.verticesSDL[i].position.y = (WINDOW_HEIGHT / 2) + (pos[1] * (WINDOW_HEIGHT / 2));
             state->triangleList.verticesSDL[i].tex_coord.x = state->triangleList.vertices[i].uv[0];
             state->triangleList.verticesSDL[i].tex_coord.y = state->triangleList.vertices[i].uv[1];
             state->triangleList.verticesSDL[i].color.r = 0;
-            state->triangleList.verticesSDL[i].color.r = 0;
-            state->triangleList.verticesSDL[i].color.r = 0;
+            state->triangleList.verticesSDL[i].color.g = 0;
+            state->triangleList.verticesSDL[i].color.b = 0;
             state->triangleList.verticesSDL[i].color.a = 255;
         }
 
@@ -220,6 +238,7 @@ int main(int argc, char *argv[]) {
 
     // Cleanup
     sgCheckReturn(sgGameEnd(state));
+    sgTriangleListEmpty(&state->triangleList);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     return 0;
