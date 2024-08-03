@@ -102,6 +102,14 @@ void trs_TriangleListAddObject(trs_TriangleList *list, trs_Vertex *vertices, int
 
 //----------------- TRS Methods -----------------//
 
+trs_Camera *trs_GetCamera() {
+    return &gGameState->camera;
+}
+
+trs_TriangleList *trs_GetTriangleList() {
+    return &gGameState->triangleList;
+}
+
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight) {
     gGameState = trs_CheckMem(calloc(1, sizeof(struct trs_GameState_t)));
     gGameState->renderer = renderer;
@@ -125,9 +133,7 @@ void trs_AddTriangles() {
 
 }
 
-void trs_EndFrame() {
-    int width, height;
-    SDL_GetWindowSize(gGameState->window, &width, &height);
+SDL_Texture *trs_EndFrame(float *width, float *height) {
 
     // Setup view matrix
     vec3 dir = {
@@ -149,8 +155,8 @@ void trs_EndFrame() {
         //glm_mat4_mulv(vp, state->triangleList.vertices[i].position, pos);
         vec4 vertex_pos = {gGameState->triangleList.vertices[i].position[0], gGameState->triangleList.vertices[i].position[1], gGameState->triangleList.vertices[i].position[2], 1.0f};
         glm_mat4_mulv(vp, vertex_pos, pos);
-        gGameState->triangleList.verticesSDL[i].position.x = ((float)width / 2) + ((pos[0] / pos[3]) * ((float)width / 2));
-        gGameState->triangleList.verticesSDL[i].position.y = ((float)height / 2) + ((pos[1] / pos[3]) * ((float)height / 2));
+        gGameState->triangleList.verticesSDL[i].position.x = (gGameState->logicalWidth / 2) + ((pos[0] / pos[3]) * (gGameState->logicalWidth / 2));
+        gGameState->triangleList.verticesSDL[i].position.y = (gGameState->logicalHeight / 2) + ((pos[1] / pos[3]) * (gGameState->logicalHeight / 2));
         gGameState->triangleList.verticesSDL[i].tex_coord.x = gGameState->triangleList.vertices[i].uv[0];
         gGameState->triangleList.verticesSDL[i].tex_coord.y = gGameState->triangleList.vertices[i].uv[1];
         gGameState->triangleList.verticesSDL[i].color.r = 0;
@@ -160,7 +166,18 @@ void trs_EndFrame() {
     }
 
     // Present the triangle list
+    SDL_SetRenderTarget(gGameState->renderer, gGameState->target);
+    SDL_SetRenderDrawColor(gGameState->renderer, 255, 255, 255, 255);
+    SDL_RenderClear(gGameState->renderer);
     SDL_RenderGeometry(gGameState->renderer, NULL, gGameState->triangleList.verticesSDL, gGameState->triangleList.count, NULL, 0);
+    SDL_SetRenderTarget(gGameState->renderer, NULL);
+    
+    // Return the texture
+    if (width != NULL)
+        *width = gGameState->logicalWidth;
+    if (height != NULL)
+        *height = gGameState->logicalHeight;
+    return gGameState->target;
 }
 
 void trs_End() {

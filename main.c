@@ -7,23 +7,26 @@ const int WINDOW_HEIGHT = 600;
 
 typedef struct GameState_t {
     SDL_Renderer *renderer;
+    bool *keyboard;
     double delta;
     double time;
 } GameState;
 
 void gameStart(GameState *game) {
     // Setup camera
-    /*state->camera.eyes[0] = -10;
-    state->camera.eyes[1] = 5;
-    state->camera.eyes[2] = 4;
-    state->camera.rotation = 3.141592635 / 4;
-    state->camera.rotationZ = -0.278;*/
+    trs_Camera *camera = trs_GetCamera();
+    camera->eyes[0] = -10;
+    camera->eyes[1] = 5;
+    camera->eyes[2] = 4;
+    camera->rotation = 3.141592635 / 4;
+    camera->rotationZ = -0.278;
 }
 
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
     // A small test model
-    /*const float size = 1;
+    trs_Camera *camera = trs_GetCamera();
+    const float size = 1;
     trs_Vertex v1 = {{-size, -size, 0, 1}};
     trs_Vertex v2 = {{size, -size, 0, 1}};
     trs_Vertex v3 = {{-size, size, 0, 1}};
@@ -39,23 +42,23 @@ bool gameUpdate(GameState *game) {
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12};
     mat4 model = {0};
     glm_mat4_identity(model);
-    glm_rotate_z(model, state->time, model);
-    trs_TriangleListAddObject(&state->triangleList, vl, 12, model);
+    glm_rotate_z(model, game->time, model);
+    trs_TriangleListAddObject(trs_GetTriangleList(), vl, 12, model);
 
     // Look around
     int x, y;
     SDL_GetRelativeMouseState(&x, &y);
-    state->camera.rotation -= (float)x * 0.0005;
-    state->camera.rotationZ += (float)y * 0.0005;
-    state->camera.rotationZ = clamp(state->camera.rotationZ, (-3.14159 / 2) + 0.01, (3.14159 / 2) - 0.01);
+    camera->rotation -= (float)x * 0.0005;
+    camera->rotationZ += (float)y * 0.0005;
+    camera->rotationZ = clamp(camera->rotationZ, (-3.14159 / 2) + 0.01, (3.14159 / 2) - 0.01);
 
     // Move
     float direction = 0;
     float directionZ = 0;
     float speed = 0;
     const float MOVE_SPEED = 0.02;
-    float pitch = state->camera.rotationZ;
-    float yaw = state->camera.rotation;
+    float pitch = camera->rotationZ;
+    float yaw = camera->rotation;
 
     vec3 forward = {
         cos(pitch) * cos(yaw),
@@ -70,30 +73,30 @@ bool gameUpdate(GameState *game) {
     };
 
     vec3 up = {0, 0, 1};
-    const float cameraSpeed = 2.5 * state->delta;
+    const float cameraSpeed = 2.5 * game->delta;
 
-    if (state->keyboard[SDL_SCANCODE_W]) {
+    if (game->keyboard[SDL_SCANCODE_W]) {
         vec3 move;
         glm_vec3_scale(forward, cameraSpeed, move);
-        glm_vec3_add(state->camera.eyes, move, state->camera.eyes);
-    } else if (state->keyboard[SDL_SCANCODE_A]) {
+        glm_vec3_add(camera->eyes, move, camera->eyes);
+    } else if (game->keyboard[SDL_SCANCODE_D]) {
         vec3 move;
         glm_vec3_scale(right, -cameraSpeed, move);
-        glm_vec3_add(state->camera.eyes, move, state->camera.eyes);
-    } else if (state->keyboard[SDL_SCANCODE_D]) {
+        glm_vec3_add(camera->eyes, move, camera->eyes);
+    } else if (game->keyboard[SDL_SCANCODE_A]) {
         vec3 move;
         glm_vec3_scale(right, cameraSpeed, move);
-        glm_vec3_add(state->camera.eyes, move, state->camera.eyes);
-    } else if (state->keyboard[SDL_SCANCODE_S]) {
+        glm_vec3_add(camera->eyes, move, camera->eyes);
+    } else if (game->keyboard[SDL_SCANCODE_S]) {
         vec3 move;
         glm_vec3_scale(forward, -cameraSpeed, move);
-        glm_vec3_add(state->camera.eyes, move, state->camera.eyes);
+        glm_vec3_add(camera->eyes, move, camera->eyes);
     }
     if (speed != 0) {
-        state->camera.eyes[0] -= speed * cos(direction);
-        state->camera.eyes[1] -= speed * sin(direction);
-        state->camera.eyes[2] += speed * tan(directionZ);
-    }*/
+        camera->eyes[0] -= speed * cos(direction);
+        camera->eyes[1] -= speed * sin(direction);
+        camera->eyes[2] += speed * tan(directionZ);
+    }
    return true;
 }
 
@@ -129,21 +132,11 @@ int main(int argc, char *argv[]) {
     double framerate = 0;
     double frameCount = 0;
 
-    // Debug
-    const uint8_t colours[] = {
-        (uint8_t)(random() * 255),
-        (uint8_t)(random() * 255),
-        (uint8_t)(random() * 255)
-    };
-
-    // Rendering
-    mat4 perspective = GLM_MAT4_IDENTITY_INIT;
-    glm_perspective(glm_rad(45.0f), (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT, 0.1, 100, perspective);
-
     // Initialize game
     uint8_t *keyboard = (void*)SDL_GetKeyboardState(NULL);
     GameState game = {
-        .renderer = renderer
+        .renderer = renderer,
+        .keyboard = keyboard
     };
     trs_Init(renderer, window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
     gameStart(&game);
@@ -173,7 +166,17 @@ int main(int argc, char *argv[]) {
 
         trs_BeginFrame();
         gameDraw(&game);
-        trs_EndFrame();
+        float width, height;
+        SDL_Texture *backbuffer = trs_EndFrame(&width, &height);
+
+        // Draw 3D portion
+        SDL_Rect dst = {
+            .x = 0,
+            .y = 0,
+            .w = width * ((float)WINDOW_WIDTH / width),
+            .h = height * ((float)WINDOW_HEIGHT / height)
+        };
+        SDL_RenderCopy(renderer, backbuffer, NULL, &dst);
 
         // End frame
         SDL_RenderPresent(renderer);

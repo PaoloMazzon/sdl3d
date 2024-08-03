@@ -25,8 +25,11 @@ typedef struct trs_Camera_t {
     float rotationZ;
 } trs_Camera;
 
+
+trs_Camera *trs_GetCamera();
+trs_TriangleList *trs_GetTriangleList();
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight);
 void trs_BeginFrame();
 void trs_AddTriangles();
-void trs_EndFrame();
+SDL_Texture *trs_EndFrame();
 void trs_End();
