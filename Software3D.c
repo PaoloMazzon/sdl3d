@@ -1,11 +1,11 @@
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <time.h>
 #include "Software3D.h"
 
 //----------------- CONSTANTS -----------------//
 #define trs_CheckReturn(f) _trs_CheckReturn(f, __LINE__)
+#define trs_Assert(f) _trs_Assert(f, __LINE__)
 #define trs_CheckMem(f) _trs_CheckMem(f, __LINE__)
 #define trs_CheckSDL(f) _trs_CheckSDL(f, __LINE__)
 
@@ -13,6 +13,7 @@
 
 struct trs_GameState_t {
     trs_TriangleList triangleList;
+    trs_TriangleList backbuffer; // for processing on the backend
     SDL_Renderer *renderer;
     trs_Camera camera;
     bool *keyboard;
@@ -54,6 +55,14 @@ void _trs_CheckSDL(void *sdl, int line) {
     }
 }
 
+void _trs_Assert(bool val, int line) {
+    if (val == false) {
+        fprintf(stderr, "Assert failed on line %i.\n", line);
+        fflush(stderr);
+        exit(0);
+    }
+}
+
 float clamp(float val, float min, float max) {
     return val < min ? min : (val > max ? max : val);
 }
@@ -78,6 +87,7 @@ void trs_TriangleListReset(trs_TriangleList *list) {
 
 // Guarantees the list has at least this much extra capacity size
 void trs_TriangleListGuaranteeAdditional(trs_TriangleList *list, int size) {
+    trs_Assert(size % 3 == 0);
     if (list->size - list->count < size) {
         list->vertices = realloc(list->vertices, sizeof(trs_Vertex) * (list->size + (size * 2)));
         trs_CheckMem(list->vertices);
@@ -141,10 +151,6 @@ trs_Camera *trs_GetCamera() {
     return &gGameState->camera;
 }
 
-trs_TriangleList *trs_GetTriangleList() {
-    return &gGameState->triangleList;
-}
-
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight) {
     gGameState = trs_CheckMem(calloc(1, sizeof(struct trs_GameState_t)));
     gGameState->renderer = renderer;
@@ -162,6 +168,62 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
 
 void trs_BeginFrame() {
     trs_TriangleListReset(&gGameState->triangleList);
+}
+
+bool trs_InFrustrum(vec4 *frustum, vec4 point) {
+    for (int i = 0; i < 6; i++) {
+        if (glm_vec4_dot(frustum[i], point) < 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Goes through the triangle list and builds the backbuffer with all the triangles within the camera frustrum
+void trs_FrustumCull(mat4 viewproj) {
+    // Make sure the backbuffer can handle the potential new triangles
+    trs_TriangleListGuaranteeAdditional(&gGameState->backbuffer, gGameState->triangleList.count);
+    trs_TriangleListReset(&gGameState->backbuffer);
+
+    // Get and normalize planes
+    vec4 planes[6];
+    glm_frustum_planes(viewproj, planes);
+    for (int i = 0; i < 6; i++)
+        glm_plane_normalize(planes[i]);
+    
+    // Loop through the whole triangle list and add any triangles to the backbuffer that have
+    // at least one vertex in the frustrum
+    bool triangleMakesCut = false;
+    int i;
+    for (i = 0; i < gGameState->triangleList.count; i++) {
+        // Check if this triangle is allowed
+        if (trs_InFrustrum(planes, gGameState->triangleList.vertices->position)) {
+            triangleMakesCut = true;
+        }
+
+        // New triangle, check if the old makes the cut
+        if (i != 0 && i % 3 == 0 && triangleMakesCut) {
+            triangleMakesCut = false;
+            const int startingVertex = ((i / 3) - 1) * 3;
+            gGameState->backbuffer.vertices[gGameState->backbuffer.count] = gGameState->triangleList.vertices[startingVertex];
+            gGameState->backbuffer.vertices[gGameState->backbuffer.count + 1] = gGameState->triangleList.vertices[startingVertex + 1];
+            gGameState->backbuffer.vertices[gGameState->backbuffer.count + 2] = gGameState->triangleList.vertices[startingVertex + 2];
+            gGameState->backbuffer.count += 3;
+        }
+    }
+    if (triangleMakesCut) {
+        triangleMakesCut = false;
+        const int startingVertex = ((i / 3) - 1) * 3;
+        gGameState->backbuffer.vertices[gGameState->backbuffer.count] = gGameState->triangleList.vertices[startingVertex];
+        gGameState->backbuffer.vertices[gGameState->backbuffer.count + 1] = gGameState->triangleList.vertices[startingVertex + 1];
+        gGameState->backbuffer.vertices[gGameState->backbuffer.count + 2] = gGameState->triangleList.vertices[startingVertex + 2];
+        gGameState->backbuffer.count += 3;
+    }
+}
+
+// Resets the front buffer and builds it back from the backbuffer in order of the painters algorithm
+void trs_PaintersAlgorithm() {
+
 }
 
 SDL_Texture *trs_EndFrame(float *width, float *height) {
@@ -182,6 +244,11 @@ SDL_Texture *trs_EndFrame(float *width, float *height) {
     mat4 vp = GLM_MAT4_IDENTITY_INIT;
     vec4 pos = {0, 0, 0, 1};
     glm_mat4_mul(gGameState->perspective, view, vp);
+
+    // Frustrum cull and painters algorithm
+    trs_FrustumCull(vp);
+    trs_PaintersAlgorithm();
+
     for (int i = 0; i < gGameState->triangleList.count; i++) {
         //glm_mat4_mulv(vp, state->triangleList.vertices[i].position, pos);
         vec4 vertex_pos = {gGameState->triangleList.vertices[i].position[0], gGameState->triangleList.vertices[i].position[1], gGameState->triangleList.vertices[i].position[2], 1.0f};

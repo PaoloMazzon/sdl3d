@@ -38,7 +38,6 @@ void trs_TriangleListAddObject(trs_TriangleList *list, trs_Vertex *vertices, int
 float clamp(float val, float min, float max);
 float random();
 trs_Camera *trs_GetCamera();
-trs_TriangleList *trs_GetTriangleList();
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight);
 void trs_BeginFrame();
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count); // the vertex list will be copied

@@ -1,5 +1,6 @@
 #define SDL_MAIN_HANDLED
 #include <SDL2/SDL.h>
+#include <time.h>
 #include "Software3D.h"
 
 const int WINDOW_WIDTH = 800;
@@ -59,7 +60,7 @@ bool gameUpdate(GameState *game) {
     float direction = 0;
     float directionZ = 0;
     float speed = 0;
-    const float MOVE_SPEED = 0.02;
+    const float MOVE_SPEED = 0.08;
     float pitch = camera->rotationZ;
     float yaw = camera->rotation;
 
@@ -76,7 +77,7 @@ bool gameUpdate(GameState *game) {
     };
 
     vec3 up = {0, 0, 1};
-    const float cameraSpeed = 2.5 * game->delta;
+    const float cameraSpeed = 6 * game->delta;
 
     if (game->keyboard[SDL_SCANCODE_W]) {
         vec3 move;
