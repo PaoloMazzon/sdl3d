@@ -12,6 +12,7 @@ typedef struct GameState_t {
     double delta;
     double time;
     trs_Model testModel;
+    trs_Model skyboxModel;
 } GameState;
 
 void gameStart(GameState *game) {
@@ -39,12 +40,27 @@ void gameStart(GameState *game) {
     trs_Vertex v12 = {{size + 5, size, 0, 1}};
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12};
     game->testModel = trs_CreateModel(vl, 12);
+
+    // Skybox
+    const float skyboxSize = 100;
+    trs_Vertex sb1 = {{-skyboxSize, -skyboxSize, skyboxSize, 1}};
+    trs_Vertex sb2 = {{skyboxSize, -skyboxSize, skyboxSize, 1}};
+    trs_Vertex sb3 = {{-skyboxSize, skyboxSize, skyboxSize, 1}};
+    trs_Vertex sb4 = {{skyboxSize, -skyboxSize, skyboxSize, 1}};
+    trs_Vertex sb5 = {{skyboxSize, skyboxSize, skyboxSize, 1}};
+    trs_Vertex sb6 = {{-skyboxSize, skyboxSize, skyboxSize, 1}};
+    trs_Vertex sbl[] = {sb1, sb2, sb3, sb4, sb5, sb6};
+    game->skyboxModel = trs_CreateModel(sbl, 6);
 }
 
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
-    // A small test model
     trs_Camera *camera = trs_GetCamera();
+
+    // Skybox
+    //trs_DrawModel(game->skyboxModel, GLM_MAT4_IDENTITY);
+
+    // A small test model
     mat4 model = GLM_MAT4_IDENTITY_INIT;
     glm_rotate_z(model, game->time, model);
     trs_DrawModel(game->testModel, model);

@@ -161,9 +161,7 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
     trs_CheckSDL(gGameState->target);
 
     glm_mat4_identity(gGameState->perspective);
-    int width, height;
-    SDL_GetWindowSize(window, &width, &height);
-    glm_perspective(glm_rad(45.0f), (float)width / (float)height, 0.1, 100, gGameState->perspective);
+    glm_perspective(glm_rad(45.0f), logicalWidth / logicalHeight, 0.1, 100, gGameState->perspective);
 }
 
 void trs_BeginFrame() {
@@ -196,11 +194,6 @@ void trs_FrustumCull(mat4 viewproj) {
     bool triangleMakesCut = false;
     int i;
     for (i = 0; i < gGameState->triangleList.count; i++) {
-        // Check if this triangle is allowed
-        if (trs_InFrustrum(planes, gGameState->triangleList.vertices->position)) {
-            triangleMakesCut = true;
-        }
-
         // New triangle, check if the old makes the cut
         if (i != 0 && i % 3 == 0 && triangleMakesCut) {
             triangleMakesCut = false;
@@ -209,6 +202,11 @@ void trs_FrustumCull(mat4 viewproj) {
             gGameState->backbuffer.vertices[gGameState->backbuffer.count + 1] = gGameState->triangleList.vertices[startingVertex + 1];
             gGameState->backbuffer.vertices[gGameState->backbuffer.count + 2] = gGameState->triangleList.vertices[startingVertex + 2];
             gGameState->backbuffer.count += 3;
+        }
+
+        // Check if this triangle is allowed
+        if (trs_InFrustrum(planes, gGameState->triangleList.vertices[i].position)) {
+            triangleMakesCut = true;
         }
     }
     if (triangleMakesCut) {
@@ -223,7 +221,14 @@ void trs_FrustumCull(mat4 viewproj) {
 
 // Resets the front buffer and builds it back from the backbuffer in order of the painters algorithm
 void trs_PaintersAlgorithm() {
+    // TODO: Painters algorithm
+    // Just copies the backbuffer to the front one
+    trs_TriangleListReset(&gGameState->triangleList);
+    gGameState->triangleList.count = gGameState->backbuffer.count;
 
+    for (int i = 0; i < gGameState->backbuffer.count; i++) {
+        gGameState->triangleList.vertices[i] = gGameState->backbuffer.vertices[i];
+    }
 }
 
 SDL_Texture *trs_EndFrame(float *width, float *height) {
