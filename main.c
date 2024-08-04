@@ -10,22 +10,19 @@ typedef struct GameState_t {
     bool *keyboard;
     double delta;
     double time;
+    trs_Model testModel;
 } GameState;
 
 void gameStart(GameState *game) {
     // Setup camera
     trs_Camera *camera = trs_GetCamera();
-    camera->eyes[0] = -10;
-    camera->eyes[1] = 5;
-    camera->eyes[2] = 4;
-    camera->rotation = 3.141592635 / 4;
-    camera->rotationZ = -0.278;
-}
+    camera->eyes[0] = 10;
+    camera->eyes[1] = 10;
+    camera->eyes[2] = -4;
+    camera->rotation = atan2f(camera->eyes[1], camera->eyes[0]) + GLM_PI;
+    camera->rotationZ = -atan2f(camera->eyes[2], sqrtf(powf(camera->eyes[1], 2) + powf(camera->eyes[0], 2)));
 
-// Returns false if the game should quit
-bool gameUpdate(GameState *game) {
-    // A small test model
-    trs_Camera *camera = trs_GetCamera();
+    // Test model
     const float size = 1;
     trs_Vertex v1 = {{-size, -size, 0, 1}};
     trs_Vertex v2 = {{size, -size, 0, 1}};
@@ -40,10 +37,16 @@ bool gameUpdate(GameState *game) {
     trs_Vertex v11 = {{-size + 5, size, 0, 1}};
     trs_Vertex v12 = {{size + 5, size, 0, 1}};
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12};
-    mat4 model = {0};
-    glm_mat4_identity(model);
+    game->testModel = trs_CreateModel(vl, 12);
+}
+
+// Returns false if the game should quit
+bool gameUpdate(GameState *game) {
+    // A small test model
+    trs_Camera *camera = trs_GetCamera();
+    mat4 model = GLM_MAT4_IDENTITY_INIT;
     glm_rotate_z(model, game->time, model);
-    trs_TriangleListAddObject(trs_GetTriangleList(), vl, 12, model);
+    trs_DrawModel(game->testModel, model);
 
     // Look around
     int x, y;
@@ -79,15 +82,18 @@ bool gameUpdate(GameState *game) {
         vec3 move;
         glm_vec3_scale(forward, cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
-    } else if (game->keyboard[SDL_SCANCODE_D]) {
+    }
+    if (game->keyboard[SDL_SCANCODE_D]) {
         vec3 move;
         glm_vec3_scale(right, -cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
-    } else if (game->keyboard[SDL_SCANCODE_A]) {
+    } 
+    if (game->keyboard[SDL_SCANCODE_A]) {
         vec3 move;
         glm_vec3_scale(right, cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
-    } else if (game->keyboard[SDL_SCANCODE_S]) {
+    } 
+    if (game->keyboard[SDL_SCANCODE_S]) {
         vec3 move;
         glm_vec3_scale(forward, -cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
@@ -136,9 +142,9 @@ int main(int argc, char *argv[]) {
     uint8_t *keyboard = (void*)SDL_GetKeyboardState(NULL);
     GameState game = {
         .renderer = renderer,
-        .keyboard = keyboard
+        .keyboard = (bool*)keyboard
     };
-    trs_Init(renderer, window, WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2);
+    trs_Init(renderer, window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4);
     gameStart(&game);
 
     // Main loop
@@ -159,12 +165,11 @@ int main(int argc, char *argv[]) {
         // Update game
         game.delta = ((double)(SDL_GetPerformanceCounter() - startTicks) / (double)SDL_GetPerformanceFrequency()) - game.time;
         game.time = (double)(SDL_GetPerformanceCounter() - startTicks) / (double)SDL_GetPerformanceFrequency();
-        
+
+        trs_BeginFrame();
         if (!gameUpdate(&game)) {
             running = false;
         }
-
-        trs_BeginFrame();
         gameDraw(&game);
         float width, height;
         SDL_Texture *backbuffer = trs_EndFrame(&width, &height);

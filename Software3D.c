@@ -100,7 +100,42 @@ void trs_TriangleListAddObject(trs_TriangleList *list, trs_Vertex *vertices, int
     list->count += count;
 }
 
-//----------------- TRS Methods -----------------//
+//----------------- Model Methods -----------------//
+
+trs_Model trs_CreateModel(trs_Vertex *vertices, int count) {
+    trs_Vertex *newVertices = trs_CheckMem(malloc(sizeof(trs_Vertex) * count));
+    trs_Model model = trs_CheckMem(malloc(sizeof(trs_Model)));
+    model->count = count;
+    model->vertices = newVertices;
+
+    // Copy the vertices
+    for (int i = 0; i < count; i++) {
+        newVertices[i] = vertices[i];
+    }
+
+    return model;
+}
+
+void trs_DrawModel(trs_Model model, mat4 modelMatrix) {
+    trs_TriangleListGuaranteeAdditional(&gGameState->triangleList, model->count);
+    
+    // Copy new ones over while multiplying by model matrix
+    for (int i = 0; i < model->count; i++) {
+        gGameState->triangleList.vertices[gGameState->triangleList.count + i] = model->vertices[i];
+        glm_mat4_mulv(modelMatrix, gGameState->triangleList.vertices[gGameState->triangleList.count + i].position, gGameState->triangleList.vertices[gGameState->triangleList.count + i].position);
+    }
+
+    gGameState->triangleList.count += model->count;
+}
+
+void trs_FreeModel(trs_Model model) {
+    if (model != NULL) {
+        free(model->vertices);
+        free(model);
+    }
+}
+
+//----------------- Main Methods -----------------//
 
 trs_Camera *trs_GetCamera() {
     return &gGameState->camera;
@@ -126,20 +161,16 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
 }
 
 void trs_BeginFrame() {
-
-}
-
-void trs_AddTriangles() {
-
+    trs_TriangleListReset(&gGameState->triangleList);
 }
 
 SDL_Texture *trs_EndFrame(float *width, float *height) {
 
     // Setup view matrix
     vec3 dir = {
-        cos(gGameState->camera.rotationZ) * cos(gGameState->camera.rotation),
-        cos(gGameState->camera.rotationZ) * sin(gGameState->camera.rotation),
-        sin(gGameState->camera.rotationZ)
+        cos(gGameState->camera.rotation),// * cos(gGameState->camera.rotation),
+        sin(gGameState->camera.rotation),// * sin(gGameState->camera.rotation),
+        tan(gGameState->camera.rotationZ)
     };
     vec3 center = {0};
     glm_vec3_add(gGameState->camera.eyes, dir, center);
