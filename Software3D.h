@@ -19,7 +19,7 @@ typedef struct trs_TriangleList_t {
     int size;
 } trs_TriangleList;
 
-typedef struct trs_Model_t {
+struct trs_Model_t {
     trs_Vertex *vertices;
     int count;
 };
@@ -31,6 +31,16 @@ typedef struct trs_Camera_t {
     float rotationZ;
 } trs_Camera;
 
+struct trs_Font_t {
+    SDL_Texture *bitmap;
+    int w;
+    int h;
+};
+typedef struct trs_Font_t *trs_Font;
+
+trs_Font trs_LoadFont(const char *filename, int w, int h); // Expects each character to be w*h and ascii 32-128
+void trs_DrawFont(trs_Font font, float x, float y, const char *fmt, ...);
+void trs_FreeFont(trs_Font font);
 void trs_TriangleListEmpty(trs_TriangleList *list);
 void trs_TriangleListReset(trs_TriangleList *list);
 void trs_TriangleListGuaranteeAdditional(trs_TriangleList *list, int size);
@@ -43,5 +53,5 @@ void trs_BeginFrame();
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count); // the vertex list will be copied
 void trs_DrawModel(trs_Model model, mat4 modelMatrix);
 void trs_FreeModel(trs_Model model);
-SDL_Texture *trs_EndFrame();
+SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget);
 void trs_End();

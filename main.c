@@ -3,8 +3,8 @@
 #include <time.h>
 #include "Software3D.h"
 
-const int WINDOW_WIDTH = 800;
-const int WINDOW_HEIGHT = 600;
+const int WINDOW_WIDTH = 256 * 3;
+const int WINDOW_HEIGHT = 224 * 3;
 
 typedef struct GameState_t {
     SDL_Renderer *renderer;
@@ -13,6 +13,7 @@ typedef struct GameState_t {
     double time;
     trs_Model testModel;
     trs_Model skyboxModel;
+    trs_Font font;
 } GameState;
 
 void gameStart(GameState *game) {
@@ -24,25 +25,28 @@ void gameStart(GameState *game) {
     camera->rotation = atan2f(camera->eyes[1], camera->eyes[0]) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2], sqrtf(powf(camera->eyes[1], 2) + powf(camera->eyes[0], 2)));
 
+    // Basic font
+    game->font = trs_LoadFont("font.png", 7, 8);
+
     // Test model
     const float size = 1;
-    trs_Vertex v1 = {{-size, -size, 0, 1}};
-    trs_Vertex v2 = {{size, -size, 0, 1}};
-    trs_Vertex v3 = {{-size, size, 0, 1}};
-    trs_Vertex v4 = {{size, -size, 0, 1}};
-    trs_Vertex v5 = {{size, size, 0, 1}};
-    trs_Vertex v6 = {{-size, size, 0, 1}};
-    trs_Vertex v7 = {{-size + 5, -size, 0, 1}};
-    trs_Vertex v8 = {{size + 5, -size, 0, 1}};
-    trs_Vertex v9 = {{-size + 5, size, 0, 1}};
-    trs_Vertex v10 = {{-size + 5, size, -1, 1}};
-    trs_Vertex v11 = {{-size + 5, size, 0, 1}};
-    trs_Vertex v12 = {{size + 5, size, 0, 1}};
+    trs_Vertex v1 = {{-size, -size, 0, 1}, {8, 0}};
+    trs_Vertex v2 = {{size, -size, 0, 1}, {24, 0}};
+    trs_Vertex v3 = {{-size, size, 0, 1}, {8, 16}};
+    trs_Vertex v4 = {{size, -size, 0, 1}, {24, 0}};
+    trs_Vertex v5 = {{size, size, 0, 1}, {24, 16}};
+    trs_Vertex v6 = {{-size, size, 0, 1}, {8, 16}};
+    trs_Vertex v7 = {{-size + 5, -size, 0, 1}, {40, 0}};
+    trs_Vertex v8 = {{size + 5, -size, 0, 1}, {56, 0}};
+    trs_Vertex v9 = {{-size + 5, size, 0, 1}, {40, 16}};
+    trs_Vertex v10 = {{-size + 5, size, -1, 1}, {56, 0}};
+    trs_Vertex v11 = {{-size + 5, size, 0, 1}, {56, 16}};
+    trs_Vertex v12 = {{size + 5, size, 0, 1}, {72, 16}};
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12};
     game->testModel = trs_CreateModel(vl, 12);
 
     // Skybox
-    const float skyboxSize = 100;
+    const float skyboxSize = 25;
     trs_Vertex sb1 = {{-skyboxSize, -skyboxSize, skyboxSize, 1}};
     trs_Vertex sb2 = {{skyboxSize, -skyboxSize, skyboxSize, 1}};
     trs_Vertex sb3 = {{-skyboxSize, skyboxSize, skyboxSize, 1}};
@@ -53,17 +57,15 @@ void gameStart(GameState *game) {
     game->skyboxModel = trs_CreateModel(sbl, 6);
 }
 
+void gameEnd(GameState *game) {
+    trs_FreeFont(game->font);
+    trs_FreeModel(game->skyboxModel);
+    trs_FreeModel(game->testModel);
+}
+
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
-
-    // Skybox
-    //trs_DrawModel(game->skyboxModel, GLM_MAT4_IDENTITY);
-
-    // A small test model
-    mat4 model = GLM_MAT4_IDENTITY_INIT;
-    glm_rotate_z(model, game->time, model);
-    trs_DrawModel(game->testModel, model);
 
     // Look around
     int x, y;
@@ -115,6 +117,12 @@ bool gameUpdate(GameState *game) {
         glm_vec3_scale(forward, -cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
     }
+    if (game->keyboard[SDL_SCANCODE_SPACE]) {
+        camera->eyes[2] -= cameraSpeed;
+    }
+    if (game->keyboard[SDL_SCANCODE_LCTRL]) {
+        camera->eyes[2] += cameraSpeed;
+    }
     if (speed != 0) {
         camera->eyes[0] -= speed * cos(direction);
         camera->eyes[1] -= speed * sin(direction);
@@ -124,11 +132,15 @@ bool gameUpdate(GameState *game) {
 }
 
 void gameDraw(GameState *game) {
-    
+    // A small test model
+    mat4 model = GLM_MAT4_IDENTITY_INIT;
+    glm_rotate_z(model, game->time, model);
+    trs_DrawModel(game->testModel, model);
 }
 
-void gameEnd(GameState *game) {
-
+void gameUI(GameState *game) {
+    trs_Camera *camera = trs_GetCamera();
+    trs_DrawFont(game->font, 1, 0, "x: %0.2f\ny: %0.2f\nz: %0.2f", camera->eyes[0], camera->eyes[1], camera->eyes[2]);
 }
 
 int main(int argc, char *argv[]) {
@@ -139,7 +151,7 @@ int main(int argc, char *argv[]) {
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        0
+        SDL_WINDOW_RESIZABLE
     );
     SDL_Renderer *renderer = SDL_CreateRenderer(
         window,
@@ -161,7 +173,7 @@ int main(int argc, char *argv[]) {
         .renderer = renderer,
         .keyboard = (bool*)keyboard
     };
-    trs_Init(renderer, window, WINDOW_WIDTH / 4, WINDOW_HEIGHT / 4);
+    trs_Init(renderer, window, 256, 224);
     gameStart(&game);
 
     // Main loop
@@ -170,13 +182,13 @@ int main(int argc, char *argv[]) {
     while (running) {
         // Event loop
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
+            if (event.type == SDL_QUIT || event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
                 running = false;
             }
         }
 
         // Render
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
         SDL_RenderClear(renderer);
 
         // Update game
@@ -189,14 +201,22 @@ int main(int argc, char *argv[]) {
         }
         gameDraw(&game);
         float width, height;
-        SDL_Texture *backbuffer = trs_EndFrame(&width, &height);
+        SDL_Texture *backbuffer = trs_EndFrame(&width, &height, false);
+        gameUI(&game);
+        SDL_SetRenderTarget(renderer, NULL);
 
-        // Draw 3D portion
+        // Draw the internal texture integer scaled
+        int windowWidth, windowHeight;
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        float scale = (float)windowHeight / height;
+        if (scale > (float)windowWidth / width)
+            scale = (float)windowWidth / width;
+        scale = floorf(scale);
         SDL_Rect dst = {
-            .x = 0,
-            .y = 0,
-            .w = width * ((float)WINDOW_WIDTH / width),
-            .h = height * ((float)WINDOW_HEIGHT / height)
+            .x = ((float)windowWidth - (width * scale)) * 0.5,
+            .y = ((float)windowHeight - (height * scale)) * 0.5,
+            .w = width * scale,
+            .h = height * scale
         };
         SDL_RenderCopy(renderer, backbuffer, NULL, &dst);
 

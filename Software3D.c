@@ -1,7 +1,21 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include "stb_image.h"
 #include "Software3D.h"
+
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+Uint32 rmask = 0xff000000;
+Uint32 gmask = 0x00ff0000;
+Uint32 bmask = 0x0000ff00;
+Uint32 amask = 0x000000ff;
+#else
+Uint32 rmask = 0x000000ff;
+Uint32 gmask = 0x0000ff00;
+Uint32 bmask = 0x00ff0000;
+Uint32 amask = 0xff000000;
+#endif
 
 //----------------- CONSTANTS -----------------//
 #define trs_CheckReturn(f) _trs_CheckReturn(f, __LINE__)
@@ -24,6 +38,7 @@ struct trs_GameState_t {
     SDL_Texture *target;
     float logicalWidth;
     float logicalHeight;
+    SDL_Texture *uvtexture; // texture all the models will pull from, "textures.png"
 };
 
 typedef struct trs_GameState_t *trs_GameState;
@@ -114,7 +129,7 @@ void trs_TriangleListAddObject(trs_TriangleList *list, trs_Vertex *vertices, int
 
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count) {
     trs_Vertex *newVertices = trs_CheckMem(malloc(sizeof(trs_Vertex) * count));
-    trs_Model model = trs_CheckMem(malloc(sizeof(trs_Model)));
+    trs_Model model = trs_CheckMem(malloc(sizeof(struct trs_Model_t)));
     model->count = count;
     model->vertices = newVertices;
 
@@ -145,6 +160,68 @@ void trs_FreeModel(trs_Model model) {
     }
 }
 
+trs_Font trs_LoadFont(const char *filename, int w, int h) {
+    trs_Font font = trs_CheckMem(malloc(sizeof(struct trs_Font_t)));
+    font->w = w;
+    font->h = h;
+    int imageW, imageH, comp;
+    void *pixels = stbi_load(filename, &imageW, &imageH, &comp, 4);
+    trs_Assert(pixels != NULL);
+    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, imageW, imageH, 32, 4 * imageW, rmask, gmask, bmask, amask);
+    trs_CheckSDL(surf);
+    font->bitmap = SDL_CreateTextureFromSurface(gGameState->renderer, surf);
+    trs_CheckSDL(font->bitmap);
+    SDL_FreeSurface(surf);
+    stbi_image_free(pixels);
+    return font;
+}
+
+void trs_DrawFont(trs_Font font, float x, float y, const char *fmt, ...) {
+    float horizontal = x;
+    int width, height;
+    
+    // Deal with varargs
+    char buffer[1024];
+    va_list list;
+    va_start(list, fmt);
+    vsnprintf(buffer, 1024, fmt, list);
+    va_end(list);
+    char *string = buffer;
+
+    SDL_QueryTexture(font->bitmap, NULL, NULL, &width, &height);
+    while (*string != 0) {
+        if (*string == 32) { // space
+            horizontal += font->w;
+        } else if (*string == '\n') { // newline
+            horizontal = x;
+            y += font->h;
+        } else if (*string > 32 && *string < 128) { // normal character
+            SDL_Rect src = {
+                .x = ((*string - 32) * font->w) % width,
+                .y = ((int)((*string - 32) * font->w) / width) * font->h,
+                .w = font->w,
+                .h = font->h
+            };
+            SDL_Rect dst = {
+                .x = horizontal,
+                .y = y,
+                .w = font->w,
+                .h = font->h
+            };
+            SDL_RenderCopy(gGameState->renderer, font->bitmap, &src, &dst);
+            horizontal += font->w;
+        }
+        string++;
+    }
+}
+
+void trs_FreeFont(trs_Font font) {
+    if (font != NULL) {
+        SDL_DestroyTexture(font->bitmap);
+        free(font);
+    }
+}
+
 //----------------- Main Methods -----------------//
 
 trs_Camera *trs_GetCamera() {
@@ -152,6 +229,7 @@ trs_Camera *trs_GetCamera() {
 }
 
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight) {
+    // Create the game state and target texture
     gGameState = trs_CheckMem(calloc(1, sizeof(struct trs_GameState_t)));
     gGameState->renderer = renderer;
     gGameState->window = window;
@@ -160,8 +238,20 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
     gGameState->target = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, logicalWidth, logicalHeight);
     trs_CheckSDL(gGameState->target);
 
+    // Perspective matrix
     glm_mat4_identity(gGameState->perspective);
     glm_perspective(glm_rad(45.0f), logicalWidth / logicalHeight, 0.1, 100, gGameState->perspective);
+
+    // Load uv texture
+    int w, h, comp;
+    void *pixels = stbi_load("textures.png", &w, &h, &comp, 4);
+    trs_Assert(pixels != NULL);
+    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, w, h, 32, 4 * w, rmask, gmask, bmask, amask);
+    trs_CheckSDL(surf);
+    gGameState->uvtexture = SDL_CreateTextureFromSurface(renderer, surf);
+    trs_CheckSDL(gGameState->uvtexture);
+    SDL_FreeSurface(surf);
+    stbi_image_free(pixels);
 }
 
 void trs_BeginFrame() {
@@ -231,7 +321,7 @@ void trs_PaintersAlgorithm() {
     }
 }
 
-SDL_Texture *trs_EndFrame(float *width, float *height) {
+SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget) {
 
     // Setup view matrix
     vec3 dir = {
@@ -260,11 +350,11 @@ SDL_Texture *trs_EndFrame(float *width, float *height) {
         glm_mat4_mulv(vp, vertex_pos, pos);
         gGameState->triangleList.verticesSDL[i].position.x = (gGameState->logicalWidth / 2) + ((pos[0] / pos[3]) * (gGameState->logicalWidth / 2));
         gGameState->triangleList.verticesSDL[i].position.y = (gGameState->logicalHeight / 2) + ((pos[1] / pos[3]) * (gGameState->logicalHeight / 2));
-        gGameState->triangleList.verticesSDL[i].tex_coord.x = gGameState->triangleList.vertices[i].uv[0];
-        gGameState->triangleList.verticesSDL[i].tex_coord.y = gGameState->triangleList.vertices[i].uv[1];
-        gGameState->triangleList.verticesSDL[i].color.r = 0;
-        gGameState->triangleList.verticesSDL[i].color.g = 0;
-        gGameState->triangleList.verticesSDL[i].color.b = 0;
+        gGameState->triangleList.verticesSDL[i].tex_coord.x = gGameState->triangleList.vertices[i].uv[0] / 128;
+        gGameState->triangleList.verticesSDL[i].tex_coord.y = gGameState->triangleList.vertices[i].uv[1] / 128;
+        gGameState->triangleList.verticesSDL[i].color.r = 255;
+        gGameState->triangleList.verticesSDL[i].color.g = 255;
+        gGameState->triangleList.verticesSDL[i].color.b = 255;
         gGameState->triangleList.verticesSDL[i].color.a = 255;
     }
 
@@ -272,8 +362,9 @@ SDL_Texture *trs_EndFrame(float *width, float *height) {
     SDL_SetRenderTarget(gGameState->renderer, gGameState->target);
     SDL_SetRenderDrawColor(gGameState->renderer, 255, 255, 255, 255);
     SDL_RenderClear(gGameState->renderer);
-    SDL_RenderGeometry(gGameState->renderer, NULL, gGameState->triangleList.verticesSDL, gGameState->triangleList.count, NULL, 0);
-    SDL_SetRenderTarget(gGameState->renderer, NULL);
+    SDL_RenderGeometry(gGameState->renderer, gGameState->uvtexture, gGameState->triangleList.verticesSDL, gGameState->triangleList.count, NULL, 0);
+    if (resetTarget)
+        SDL_SetRenderTarget(gGameState->renderer, NULL);
     
     // Return the texture
     if (width != NULL)
@@ -284,5 +375,7 @@ SDL_Texture *trs_EndFrame(float *width, float *height) {
 }
 
 void trs_End() {
+    SDL_DestroyTexture(gGameState->uvtexture);
+    SDL_DestroyTexture(gGameState->target);
     trs_TriangleListEmpty(&gGameState->triangleList);
 }
