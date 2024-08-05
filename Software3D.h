@@ -63,6 +63,7 @@ SDL_Texture *trs_LoadPNG(const char *filename); // shorthand for stb image
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count); // the vertex list will be copied
 trs_Model trs_LoadModel(const char *filename); // loads a model from a .obj
 void trs_DrawModel(trs_Model model, mat4 modelMatrix);
+void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, float scaleY, float scaleZ, float rotationX, float rotationY, float rotationZ);
 void trs_FreeModel(trs_Model model);
 
 // Core renderer

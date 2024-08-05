@@ -15,7 +15,7 @@ typedef struct GameState_t {
     trs_Model skyboxModel;
     trs_Font font;
     SDL_Texture *compassTex;
-    trs_Model cubeModel;
+    trs_Model playerModel;
 } GameState;
 
 void gameStart(GameState *game) {
@@ -23,14 +23,14 @@ void gameStart(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
     camera->eyes[0] = 10;
     camera->eyes[1] = 10;
-    camera->eyes[2] = -4;
+    camera->eyes[2] = 4;
     camera->rotation = atan2f(camera->eyes[1], camera->eyes[0]) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2], sqrtf(powf(camera->eyes[1], 2) + powf(camera->eyes[0], 2)));
 
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
-    game->cubeModel = trs_LoadModel("rectangle.obj");
+    game->playerModel = trs_LoadModel("player.obj");
 
     // Test model
     const float size = 1;
@@ -74,7 +74,7 @@ void gameEnd(GameState *game) {
     trs_FreeFont(game->font);
     trs_FreeModel(game->skyboxModel);
     trs_FreeModel(game->testModel);
-    trs_FreeModel(game->cubeModel);
+    trs_FreeModel(game->playerModel);
     SDL_DestroyTexture(game->compassTex);
 }
 
@@ -85,8 +85,8 @@ bool gameUpdate(GameState *game) {
     // Look around
     int x, y;
     SDL_GetRelativeMouseState(&x, &y);
-    camera->rotation -= (float)x * 0.0005;
-    camera->rotationZ += (float)y * 0.0005;
+    camera->rotation += (float)x * 0.0005;
+    camera->rotationZ -= (float)y * 0.0005;
     camera->rotationZ = clamp(camera->rotationZ, (-3.14159 / 2) + 0.01, (3.14159 / 2) - 0.01);
 
     // Move
@@ -119,12 +119,12 @@ bool gameUpdate(GameState *game) {
     }
     if (game->keyboard[SDL_SCANCODE_D]) {
         vec3 move;
-        glm_vec3_scale(right, -cameraSpeed, move);
+        glm_vec3_scale(right, cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
     } 
     if (game->keyboard[SDL_SCANCODE_A]) {
         vec3 move;
-        glm_vec3_scale(right, cameraSpeed, move);
+        glm_vec3_scale(right, -cameraSpeed, move);
         glm_vec3_add(camera->eyes, move, camera->eyes);
     } 
     if (game->keyboard[SDL_SCANCODE_S]) {
@@ -133,10 +133,10 @@ bool gameUpdate(GameState *game) {
         glm_vec3_add(camera->eyes, move, camera->eyes);
     }
     if (game->keyboard[SDL_SCANCODE_SPACE]) {
-        camera->eyes[2] -= cameraSpeed;
+        camera->eyes[2] += cameraSpeed;
     }
     if (game->keyboard[SDL_SCANCODE_LCTRL]) {
-        camera->eyes[2] += cameraSpeed;
+        camera->eyes[2] -= cameraSpeed;
     }
     if (speed != 0) {
         camera->eyes[0] -= speed * cos(direction);
@@ -147,19 +147,7 @@ bool gameUpdate(GameState *game) {
 }
 
 void gameDraw(GameState *game) {
-    // A small test model
-    mat4 model = GLM_MAT4_IDENTITY_INIT;
-    glm_rotate_z(model, game->time, model);
-    //trs_DrawModel(game->testModel, model);
-    trs_DrawModel(game->cubeModel, model);
-
-    /*for (int i = 0; i < 300; i++) {
-        mat4 model1 = GLM_MAT4_IDENTITY_INIT;
-        glm_rotate_z(model1, game->time, model1);
-        glm_translate_z(model1, (i / 10) * 1.5);
-        glm_translate_y(model1, ((i % 10) - 5) * 2.5);
-        trs_DrawModel(game->testModel, model1);
-    }*/
+    trs_DrawModelExt(game->playerModel, 0, 0, 0, 1, 1, 1, 0, 0, game->time);
 }
 
 void gameUI(GameState *game) {

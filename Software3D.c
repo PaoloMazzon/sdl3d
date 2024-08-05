@@ -202,9 +202,15 @@ trs_Model trs_LoadModel(const char *filename) {
         trs_Vertex vertex = {0};
         const int vertexIndex = attrib.faces[faceIndex].v_idx;
 		const int textureIndex = attrib.faces[faceIndex].vt_idx;
-        vertex.position[0] = attrib.vertices[(vertexIndex * 3) + 0];
-        vertex.position[1] = attrib.vertices[(vertexIndex * 3) + 1];
-        vertex.position[2] = attrib.vertices[(vertexIndex * 3) + 2];
+
+        // account for the renderer coordinate system being wack
+        vec3 pos = {attrib.vertices[(vertexIndex * 3) + 0], attrib.vertices[(vertexIndex * 3) + 1], attrib.vertices[(vertexIndex * 3) + 2]};
+        glm_vec3_rotate(pos, GLM_PI / 2, (vec3){1, 0, 0});
+
+        // Copy vertex
+        vertex.position[0] = pos[0];
+        vertex.position[1] = pos[1];
+        vertex.position[2] = pos[2];
         vertex.position[3] = 1;
         vertex.uv[0] = attrib.texcoords[(textureIndex * 2) + 0];
         vertex.uv[1] = 1 - attrib.texcoords[(textureIndex * 2) + 1];
@@ -243,6 +249,21 @@ void trs_DrawModel(trs_Model model, mat4 modelMatrix) {
     }
 
     gGameState->triangleList.count += model->count;
+}
+
+void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, float scaleY, float scaleZ, float rotationX, float rotationY, float rotationZ) {
+    mat4 modelMatrix = GLM_MAT4_IDENTITY_INIT;
+    vec3 translate = {x, y, z};
+    vec3 scale = {scaleX, scaleY, scaleZ};
+    glm_scale(modelMatrix, scale);
+    if (rotationX != 0)
+        glm_rotate_x(modelMatrix, rotationX, modelMatrix);
+    if (rotationY != 0)
+        glm_rotate_y(modelMatrix, rotationY, modelMatrix);
+    if (rotationZ != 0)
+        glm_rotate_z(modelMatrix, rotationZ, modelMatrix);
+    glm_translate(modelMatrix, translate);
+    trs_DrawModel(model, modelMatrix);
 }
 
 void trs_FreeModel(trs_Model model) {
@@ -431,7 +452,7 @@ SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget) {
     };
     vec3 center = {0};
     glm_vec3_add(gGameState->camera.eyes, dir, center);
-    vec3 up = {0, 0, 1};
+    vec3 up = {0, 0, -1};
     mat4 view = GLM_MAT4_IDENTITY_INIT;
     glm_lookat(gGameState->camera.eyes, center, up, view);
 
