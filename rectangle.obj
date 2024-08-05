@@ -1,5 +1,4 @@
 # picocad model
-mtllib rectangle.mtl
 o rectangle
 v -1 0.5 0.5
 v 1 0.5 0.5

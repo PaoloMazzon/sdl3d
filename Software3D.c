@@ -1,8 +1,10 @@
 #define STB_IMAGE_IMPLEMENTATION
+#define TINYOBJ_LOADER_C_IMPLEMENTATION
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include "stb_image.h"
+#include "tinyobj_loader_c.h"
 #include "Software3D.h"
 
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -42,8 +44,12 @@ struct trs_GameState_t {
 };
 
 typedef struct trs_GameState_t *trs_GameState;
+
+// Globals
 static trs_GameState gGameState;
 static int gTriangleCount;
+static int gTinyOBJSize;
+static void *gTinyOBJBuffer;
 
 typedef struct trs_TriangleDepth_t {
     int index;
@@ -106,6 +112,31 @@ SDL_Texture *trs_LoadPNG(const char *filename) {
     return out;
 }
 
+static uint8_t *trs_LoadFile(const char *filename, int *size) {
+    FILE* file = fopen(filename, "rb");
+    trs_Assert(file != NULL);
+	unsigned char *buffer = NULL;
+	*size = 0;
+
+    // Find file size
+    fseek(file, 0, SEEK_END);
+    *size = ftell(file);
+    rewind(file);
+
+    buffer = trs_CheckMem(malloc(*size));
+    
+    // Fill the buffer
+    fread(buffer, 1, *size, file);
+    fclose(file);
+
+	return buffer;
+}
+
+static void trs_GetTinyOBJFileData(void* ctx, const char* filename, const int is_mtl, const char* obj_filename, char** data, size_t* len) {
+    *data = gTinyOBJBuffer;
+    *len = gTinyOBJSize;
+}
+
 //----------------- TRIANGLE LIST METHODS -----------------//
 void trs_TriangleListEmpty(trs_TriangleList *list) {
     list->count = 0;
@@ -146,6 +177,47 @@ void trs_TriangleListAddObject(trs_TriangleList *list, trs_Vertex *vertices, int
 }
 
 //----------------- Model Methods -----------------//
+
+trs_Model trs_LoadModel(const char *filename) {
+    // Load obj - from tinyobj viewer example
+    gTinyOBJBuffer = trs_LoadFile(filename, &gTinyOBJSize);
+    tinyobj_attrib_t attrib;
+    tinyobj_shape_t* shapes = NULL;
+    size_t num_shapes;
+    tinyobj_material_t* materials = NULL;
+    size_t num_materials;
+    unsigned int flags = TINYOBJ_FLAG_TRIANGULATE;
+    int ret = tinyobj_parse_obj(&attrib, &shapes, &num_shapes, &materials, &num_materials, "asd", trs_GetTinyOBJFileData, NULL, flags);
+    trs_Assert(ret == TINYOBJ_SUCCESS);
+
+    // Allocate
+    trs_Vertex *newVertices = trs_CheckMem(calloc(attrib.num_faces * 3, sizeof(trs_Vertex)));
+    trs_Model model = trs_CheckMem(malloc(sizeof(struct trs_Model_t)));
+    model->count = attrib.num_faces * 3;
+    model->vertices = newVertices;
+    int currentVertex = 0;
+
+    // Parse vertices
+    for (int faceIndex = 0; faceIndex < attrib.num_faces; faceIndex++) {
+        trs_Vertex vertex = {0};
+        const int vertexIndex = attrib.faces[faceIndex].v_idx;
+		const int textureIndex = attrib.faces[faceIndex].vt_idx;
+        vertex.position[0] = attrib.vertices[(vertexIndex * 3) + 0];
+        vertex.position[1] = attrib.vertices[(vertexIndex * 3) + 1];
+        vertex.position[2] = attrib.vertices[(vertexIndex * 3) + 2];
+        vertex.position[3] = 1;
+        vertex.uv[0] = attrib.texcoords[(textureIndex * 2) + 0];
+        vertex.uv[1] = 1 - attrib.texcoords[(textureIndex * 2) + 1];
+        newVertices[currentVertex++] = vertex;
+    }
+
+    // Free tinyobj
+    tinyobj_attrib_free(&attrib);
+    tinyobj_shapes_free(shapes, num_shapes);
+    tinyobj_materials_free(materials, num_materials);
+
+    return model;
+}
 
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count) {
     trs_Vertex *newVertices = trs_CheckMem(malloc(sizeof(trs_Vertex) * count));
@@ -327,7 +399,7 @@ void trs_PaintersAlgorithm() {
     // Make sure the front buffer is of the right soul
     trs_TriangleListReset(&gGameState->triangleList);
     gGameState->triangleList.count = gGameState->backbuffer.count;
-    gTriangleCount = gGameState->triangleList.count;
+    gTriangleCount = gGameState->triangleList.count / 3;
 
     // Create triangle depth list
     trs_TriangleDepth *triangleDepths = trs_CheckMem(calloc(gGameState->backbuffer.count / 3, sizeof(struct trs_TriangleDepth_t)));

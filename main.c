@@ -15,6 +15,7 @@ typedef struct GameState_t {
     trs_Model skyboxModel;
     trs_Font font;
     SDL_Texture *compassTex;
+    trs_Model cubeModel;
 } GameState;
 
 void gameStart(GameState *game) {
@@ -29,6 +30,7 @@ void gameStart(GameState *game) {
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
+    game->cubeModel = trs_LoadModel("rectangle.obj");
 
     // Test model
     const float size = 1;
@@ -72,6 +74,7 @@ void gameEnd(GameState *game) {
     trs_FreeFont(game->font);
     trs_FreeModel(game->skyboxModel);
     trs_FreeModel(game->testModel);
+    trs_FreeModel(game->cubeModel);
     SDL_DestroyTexture(game->compassTex);
 }
 
@@ -147,7 +150,8 @@ void gameDraw(GameState *game) {
     // A small test model
     mat4 model = GLM_MAT4_IDENTITY_INIT;
     glm_rotate_z(model, game->time, model);
-    trs_DrawModel(game->testModel, model);
+    //trs_DrawModel(game->testModel, model);
+    trs_DrawModel(game->cubeModel, model);
 
     /*for (int i = 0; i < 300; i++) {
         mat4 model1 = GLM_MAT4_IDENTITY_INIT;
