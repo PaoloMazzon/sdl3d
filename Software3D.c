@@ -86,6 +86,20 @@ float random() {
     return (float)(rand() % 10000) / 10000.0f;
 }
 
+SDL_Texture *trs_LoadPNG(const char *filename) {
+    SDL_Texture *out;
+    int imageW, imageH, comp;
+    void *pixels = stbi_load(filename, &imageW, &imageH, &comp, 4);
+    trs_Assert(pixels != NULL);
+    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, imageW, imageH, 32, 4 * imageW, rmask, gmask, bmask, amask);
+    trs_CheckSDL(surf);
+    out = SDL_CreateTextureFromSurface(gGameState->renderer, surf);
+    trs_CheckSDL(out);
+    SDL_FreeSurface(surf);
+    stbi_image_free(pixels);
+    return out;
+}
+
 //----------------- TRIANGLE LIST METHODS -----------------//
 void trs_TriangleListEmpty(trs_TriangleList *list) {
     list->count = 0;
@@ -160,19 +174,13 @@ void trs_FreeModel(trs_Model model) {
     }
 }
 
+//----------------- Font Methods -----------------//
+
 trs_Font trs_LoadFont(const char *filename, int w, int h) {
     trs_Font font = trs_CheckMem(malloc(sizeof(struct trs_Font_t)));
     font->w = w;
     font->h = h;
-    int imageW, imageH, comp;
-    void *pixels = stbi_load(filename, &imageW, &imageH, &comp, 4);
-    trs_Assert(pixels != NULL);
-    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, imageW, imageH, 32, 4 * imageW, rmask, gmask, bmask, amask);
-    trs_CheckSDL(surf);
-    font->bitmap = SDL_CreateTextureFromSurface(gGameState->renderer, surf);
-    trs_CheckSDL(font->bitmap);
-    SDL_FreeSurface(surf);
-    stbi_image_free(pixels);
+    font->bitmap = trs_LoadPNG(filename);
     return font;
 }
 
@@ -243,15 +251,7 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
     glm_perspective(glm_rad(45.0f), logicalWidth / logicalHeight, 0.1, 100, gGameState->perspective);
 
     // Load uv texture
-    int w, h, comp;
-    void *pixels = stbi_load("textures.png", &w, &h, &comp, 4);
-    trs_Assert(pixels != NULL);
-    SDL_Surface *surf = SDL_CreateRGBSurfaceFrom(pixels, w, h, 32, 4 * w, rmask, gmask, bmask, amask);
-    trs_CheckSDL(surf);
-    gGameState->uvtexture = SDL_CreateTextureFromSurface(renderer, surf);
-    trs_CheckSDL(gGameState->uvtexture);
-    SDL_FreeSurface(surf);
-    stbi_image_free(pixels);
+    gGameState->uvtexture = trs_LoadPNG("textures.png");
 }
 
 void trs_BeginFrame() {

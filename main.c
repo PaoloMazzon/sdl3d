@@ -14,6 +14,7 @@ typedef struct GameState_t {
     trs_Model testModel;
     trs_Model skyboxModel;
     trs_Font font;
+    SDL_Texture *compassTex;
 } GameState;
 
 void gameStart(GameState *game) {
@@ -25,8 +26,9 @@ void gameStart(GameState *game) {
     camera->rotation = atan2f(camera->eyes[1], camera->eyes[0]) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2], sqrtf(powf(camera->eyes[1], 2) + powf(camera->eyes[0], 2)));
 
-    // Basic font
+    // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
+    game->compassTex = trs_LoadPNG("compass.png");
 
     // Test model
     const float size = 1;
@@ -61,6 +63,7 @@ void gameEnd(GameState *game) {
     trs_FreeFont(game->font);
     trs_FreeModel(game->skyboxModel);
     trs_FreeModel(game->testModel);
+    SDL_DestroyTexture(game->compassTex);
 }
 
 // Returns false if the game should quit
@@ -140,7 +143,33 @@ void gameDraw(GameState *game) {
 
 void gameUI(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
+
+    // Draw position
     trs_DrawFont(game->font, 1, 0, "x: %0.2f\ny: %0.2f\nz: %0.2f", camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+
+    // Draw orientation
+    const float startX = 231;
+    const float startY = 23;
+    SDL_Rect dst = {
+        .x = startX - 13,
+        .y = startY - 13,
+        .w = 25,
+        .h = 25
+    };
+    SDL_RenderCopy(game->renderer, game->compassTex, NULL, &dst);
+
+    // Horizontal orientation
+    const float horiX = (cosf(camera->rotation) * 10);
+    const float horiY = (sinf(camera->rotation) * 10);
+    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+    SDL_RenderDrawLine(game->renderer, startX, startY, startX + horiX, startY + horiY);
+
+    // Vertical orientation
+    const float verticalPercent = (camera->rotationZ / GLM_PI);
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 255, 255);
+    SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY + (verticalPercent * 20));
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+    SDL_RenderDrawPoint(game->renderer, startX, startY);
 }
 
 int main(int argc, char *argv[]) {
