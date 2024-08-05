@@ -44,6 +44,11 @@ struct trs_GameState_t {
 typedef struct trs_GameState_t *trs_GameState;
 static trs_GameState gGameState;
 
+typedef struct trs_TriangleDepth_t {
+    int index;
+    float averageDepth;
+} trs_TriangleDepth;
+
 //----------------- UTILITY METHODS -----------------//
 void _trs_CheckReturn(trs_ReturnType type, int line) {
     if (type == TRS_RETURN_TYPE_FAILED) {
@@ -309,16 +314,37 @@ void trs_FrustumCull(mat4 viewproj) {
     }
 }
 
+// Comparison function for the quick sort
+int comp(const void *val1, const void *val2) {
+    trs_TriangleDepth *triangle1 = val1;
+    trs_TriangleDepth *triangle2 = val2;
+    return triangle1->averageDepth > triangle2->averageDepth ? -1 : 1;
+}
+
 // Resets the front buffer and builds it back from the backbuffer in order of the painters algorithm
 void trs_PaintersAlgorithm() {
-    // TODO: Painters algorithm
-    // Just copies the backbuffer to the front one
+    // Make sure the front buffer is of the right soul
     trs_TriangleListReset(&gGameState->triangleList);
     gGameState->triangleList.count = gGameState->backbuffer.count;
 
-    for (int i = 0; i < gGameState->backbuffer.count; i++) {
-        gGameState->triangleList.vertices[i] = gGameState->backbuffer.vertices[i];
+    // Create triangle depth list
+    trs_TriangleDepth *triangleDepths = trs_CheckMem(calloc(gGameState->backbuffer.count / 3, sizeof(struct trs_TriangleDepth_t)));
+    for (int i = 0; i < gGameState->backbuffer.count / 3; i++) {
+        triangleDepths[i].averageDepth = (gGameState->backbuffer.vertices[i * 3].position[2] + gGameState->backbuffer.vertices[(i * 3) + 1].position[2] + gGameState->backbuffer.vertices[(i * 3) + 2].position[2]) / 3;
+        triangleDepths[i].index = i;
     }
+
+    // Sort
+    qsort(triangleDepths, gGameState->backbuffer.count / 3, sizeof(struct trs_TriangleDepth_t), comp);
+
+    // Copy sorted triangles to triangle list
+    for (int i = 0; i < gGameState->backbuffer.count / 3; i++) {
+        const int tri = triangleDepths[i].index;
+        gGameState->triangleList.vertices[i * 3] = gGameState->backbuffer.vertices[tri * 3];
+        gGameState->triangleList.vertices[(i * 3) + 1] = gGameState->backbuffer.vertices[(tri * 3) + 1];
+        gGameState->triangleList.vertices[(i * 3) + 2] = gGameState->backbuffer.vertices[(tri * 3) + 2];
+    }
+    free(triangleDepths);
 }
 
 SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget) {
@@ -337,21 +363,26 @@ SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget) {
 
     // Convert triangle list to SDL_Vertex list
     mat4 vp = GLM_MAT4_IDENTITY_INIT;
-    vec4 pos = {0, 0, 0, 1};
     glm_mat4_mul(gGameState->perspective, view, vp);
 
     // Frustrum cull and painters algorithm
     trs_FrustumCull(vp);
+
+    // Calculate MVP per-vertex
+    for (int i = 0; i < gGameState->backbuffer.count; i++) {
+        glm_mat4_mulv(vp, gGameState->backbuffer.vertices[i].position, gGameState->backbuffer.vertices[i].position);
+    }
+
+    // Painters
     trs_PaintersAlgorithm();
 
+    // Compile the SDL vertex list
     for (int i = 0; i < gGameState->triangleList.count; i++) {
-        //glm_mat4_mulv(vp, state->triangleList.vertices[i].position, pos);
-        vec4 vertex_pos = {gGameState->triangleList.vertices[i].position[0], gGameState->triangleList.vertices[i].position[1], gGameState->triangleList.vertices[i].position[2], 1.0f};
-        glm_mat4_mulv(vp, vertex_pos, pos);
+        float *pos = gGameState->triangleList.vertices[i].position;
         gGameState->triangleList.verticesSDL[i].position.x = (gGameState->logicalWidth / 2) + ((pos[0] / pos[3]) * (gGameState->logicalWidth / 2));
         gGameState->triangleList.verticesSDL[i].position.y = (gGameState->logicalHeight / 2) + ((pos[1] / pos[3]) * (gGameState->logicalHeight / 2));
-        gGameState->triangleList.verticesSDL[i].tex_coord.x = gGameState->triangleList.vertices[i].uv[0] / 128;
-        gGameState->triangleList.verticesSDL[i].tex_coord.y = gGameState->triangleList.vertices[i].uv[1] / 128;
+        gGameState->triangleList.verticesSDL[i].tex_coord.x = gGameState->triangleList.vertices[i].uv[0];
+        gGameState->triangleList.verticesSDL[i].tex_coord.y = gGameState->triangleList.vertices[i].uv[1];
         gGameState->triangleList.verticesSDL[i].color.r = 255;
         gGameState->triangleList.verticesSDL[i].color.g = 255;
         gGameState->triangleList.verticesSDL[i].color.b = 255;
