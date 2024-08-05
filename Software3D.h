@@ -38,6 +38,7 @@ struct trs_Font_t {
 };
 typedef struct trs_Font_t *trs_Font;
 
+int trs_GetTriangleCount();
 SDL_Texture *trs_LoadPNG(const char *filename);
 trs_Font trs_LoadFont(const char *filename, int w, int h); // Expects each character to be w*h and ascii 32-128
 void trs_DrawFont(trs_Font font, float x, float y, const char *fmt, ...);

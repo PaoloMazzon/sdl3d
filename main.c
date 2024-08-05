@@ -148,13 +148,21 @@ void gameDraw(GameState *game) {
     mat4 model = GLM_MAT4_IDENTITY_INIT;
     glm_rotate_z(model, game->time, model);
     trs_DrawModel(game->testModel, model);
+
+    /*for (int i = 0; i < 300; i++) {
+        mat4 model1 = GLM_MAT4_IDENTITY_INIT;
+        glm_rotate_z(model1, game->time, model1);
+        glm_translate_z(model1, (i / 10) * 1.5);
+        glm_translate_y(model1, ((i % 10) - 5) * 2.5);
+        trs_DrawModel(game->testModel, model1);
+    }*/
 }
 
 void gameUI(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
 
     // Draw position
-    trs_DrawFont(game->font, 1, 0, "x: %0.2f\ny: %0.2f\nz: %0.2f", camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+    trs_DrawFont(game->font, 1, 0, "Triangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
 
     // Draw orientation
     const float startX = 231;

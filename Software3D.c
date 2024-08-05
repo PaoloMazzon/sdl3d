@@ -43,6 +43,7 @@ struct trs_GameState_t {
 
 typedef struct trs_GameState_t *trs_GameState;
 static trs_GameState gGameState;
+static int gTriangleCount;
 
 typedef struct trs_TriangleDepth_t {
     int index;
@@ -316,8 +317,8 @@ void trs_FrustumCull(mat4 viewproj) {
 
 // Comparison function for the quick sort
 int comp(const void *val1, const void *val2) {
-    trs_TriangleDepth *triangle1 = val1;
-    trs_TriangleDepth *triangle2 = val2;
+    const trs_TriangleDepth *triangle1 = val1;
+    const trs_TriangleDepth *triangle2 = val2;
     return triangle1->averageDepth > triangle2->averageDepth ? -1 : 1;
 }
 
@@ -326,6 +327,7 @@ void trs_PaintersAlgorithm() {
     // Make sure the front buffer is of the right soul
     trs_TriangleListReset(&gGameState->triangleList);
     gGameState->triangleList.count = gGameState->backbuffer.count;
+    gTriangleCount = gGameState->triangleList.count;
 
     // Create triangle depth list
     trs_TriangleDepth *triangleDepths = trs_CheckMem(calloc(gGameState->backbuffer.count / 3, sizeof(struct trs_TriangleDepth_t)));
@@ -409,4 +411,8 @@ void trs_End() {
     SDL_DestroyTexture(gGameState->uvtexture);
     SDL_DestroyTexture(gGameState->target);
     trs_TriangleListEmpty(&gGameState->triangleList);
+}
+
+int trs_GetTriangleCount() {
+    return gTriangleCount;
 }
