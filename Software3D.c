@@ -54,6 +54,7 @@ static void *gTinyOBJBuffer;
 typedef struct trs_TriangleDepth_t {
     int index;
     float averageDepth;
+    float lowestDepth;
 } trs_TriangleDepth;
 
 //----------------- UTILITY METHODS -----------------//
@@ -256,13 +257,14 @@ void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, 
     vec3 translate = {x, y, z};
     vec3 scale = {scaleX, scaleY, scaleZ};
     glm_scale(modelMatrix, scale);
+    glm_translate(modelMatrix, translate);
     if (rotationX != 0)
         glm_rotate_x(modelMatrix, rotationX, modelMatrix);
     if (rotationY != 0)
         glm_rotate_y(modelMatrix, rotationY, modelMatrix);
-    if (rotationZ != 0)
+    if (rotationZ != 0) {
         glm_rotate_z(modelMatrix, rotationZ, modelMatrix);
-    glm_translate(modelMatrix, translate);
+    }
     trs_DrawModel(model, modelMatrix);
 }
 
@@ -408,11 +410,20 @@ void trs_FrustumCull(mat4 viewproj) {
     }
 }
 
+// Returns of the lowest of three inputs
+static float lowestThree(float x, float y, float z) {
+    if (x < y && x < z)
+        return x;
+    if (y < x && y < z)
+        return y;
+    return z;
+}
+
 // Comparison function for the quick sort
 int comp(const void *val1, const void *val2) {
     const trs_TriangleDepth *triangle1 = val1;
     const trs_TriangleDepth *triangle2 = val2;
-    return triangle1->averageDepth > triangle2->averageDepth ? -1 : 1;
+    return triangle1->averageDepth > triangle2->averageDepth && triangle1->averageDepth > triangle2->lowestDepth ? -1 : 1;
 }
 
 // Resets the front buffer and builds it back from the backbuffer in order of the painters algorithm
@@ -426,6 +437,7 @@ void trs_PaintersAlgorithm() {
     trs_TriangleDepth *triangleDepths = trs_CheckMem(calloc(gGameState->backbuffer.count / 3, sizeof(struct trs_TriangleDepth_t)));
     for (int i = 0; i < gGameState->backbuffer.count / 3; i++) {
         triangleDepths[i].averageDepth = (gGameState->backbuffer.vertices[i * 3].position[2] + gGameState->backbuffer.vertices[(i * 3) + 1].position[2] + gGameState->backbuffer.vertices[(i * 3) + 2].position[2]) / 3;
+        triangleDepths[i].lowestDepth = lowestThree(gGameState->backbuffer.vertices[i * 3].position[2], gGameState->backbuffer.vertices[(i * 3) + 1].position[2], gGameState->backbuffer.vertices[(i * 3) + 2].position[2]);
         triangleDepths[i].index = i;
     }
 

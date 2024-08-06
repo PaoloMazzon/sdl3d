@@ -6,31 +6,170 @@
 const int WINDOW_WIDTH = 256 * 3;
 const int WINDOW_HEIGHT = 224 * 3;
 
+typedef struct Player_t {
+    float x, y, z;
+    float velocityX, velocityY, velocityZ;
+    float speed;
+    float direction;
+    float drawDirection;
+    float jumpTimer;
+    float zscale; // for animations
+    bool onGroundLastFrame;
+    float squishTimer; // for animations
+} Player;
+
 typedef struct GameState_t {
     SDL_Renderer *renderer;
+    Player player;
     bool *keyboard;
     double delta;
     double time;
     trs_Model testModel;
-    trs_Model skyboxModel;
     trs_Font font;
     SDL_Texture *compassTex;
     trs_Model playerModel;
+    trs_Model groundPlane;
 } GameState;
+
+//******************************** Player ********************************//
+void playerCreate(GameState *game, Player *player) {
+    player->x = 0;
+    player->y = 0;
+    player->z = 0;
+    player->onGroundLastFrame = true;
+}
+
+bool playerOnGround(GameState *game, Player *player) {
+    return player->z <= 0;
+}
+
+void playerUpdate(GameState *game, Player *player) {
+    trs_Camera *cam = trs_GetCamera();
+    const float speed = 0.3 * game->delta;
+    const float gravity = 15 * game->delta;
+    const float terminalVelocity = -10;
+    const float topSpeed = 8;
+    const float friction = 0.8 * game->delta;
+    const float jumpSpeed = 30;
+    const float jumpDuration = 0.8; // in seconds
+    const float squishDuration = 0.3;
+
+    // Get player input
+    player->velocityX = player->velocityY = player->velocityZ = 0;
+    player->velocityX = (float)game->keyboard[SDL_SCANCODE_RIGHT] - (float)game->keyboard[SDL_SCANCODE_LEFT];
+    player->velocityY = (float)game->keyboard[SDL_SCANCODE_UP] - (float)game->keyboard[SDL_SCANCODE_DOWN];
+    const bool jump = playerOnGround(game, player) && game->keyboard[SDL_SCANCODE_SPACE];
+
+    // Move relative to the camera's placement
+    if (player->velocityX != 0 || player->velocityY != 0) {
+        player->direction = cam->rotation + atan2f(player->velocityX, player->velocityY);
+        player->speed = clamp(player->speed + speed, 0, topSpeed * game->delta);
+    } else {
+        player->speed = clamp(player->speed - friction, 0, 999);
+    }
+    const float xComponent = cos(player->direction);
+    const float yComponent = sin(player->direction);
+    player->x += xComponent * player->speed;
+    player->y += yComponent * player->speed;
+
+    // Jump & gravity
+    if (jump)
+        player->jumpTimer = jumpDuration;
+    if (player->jumpTimer > 0) {
+        player->jumpTimer = clamp(player->jumpTimer - game->delta, 0, 999);
+        player->velocityZ += jumpSpeed * (player->jumpTimer / jumpDuration) * game->delta;
+        const float x = (player->jumpTimer / jumpDuration);
+        player->zscale = 1 + ((-powf((2 * x) - 1, 2) + 1) * 0.3);
+    } else {
+        player->zscale = 1;
+    }
+    player->velocityZ = clamp(player->velocityZ - gravity, terminalVelocity, 9999999);
+    player->z = clamp(player->z + (player->velocityZ), 0, 999);
+
+    // Squash animation
+    if (playerOnGround(game, player) && !player->onGroundLastFrame) {
+        player->squishTimer = squishDuration;
+    }
+    if (player->squishTimer > 0) {
+        const float percent = (player->squishTimer / squishDuration);
+        player->squishTimer -= game->delta;
+        player->zscale = 1 - ((-powf((2 * percent) - 1, 2) + 1) * 0.8);
+    }
+
+    player->onGroundLastFrame = playerOnGround(game, player);
+}
+
+static double normalizeAngle(double angle) {
+    while (angle < 0) {
+        angle += 2 * GLM_PI;
+    }
+    while (angle >= 2 * GLM_PI) {
+        angle -= 2 * GLM_PI;
+    }
+    return angle;
+}
+
+void playerDraw(GameState *game, Player *player) {
+    player->drawDirection = normalizeAngle(player->drawDirection);
+    player->direction = normalizeAngle(player->direction);
+    float difference = (player->direction - player->drawDirection);
+    if (difference > GLM_PI) {
+        difference -= 2 * GLM_PI;
+    } else if (difference < -GLM_PI) {
+        difference += 2 * GLM_PI;
+    }
+    player->drawDirection += difference * 10 * game->delta;
+    player->drawDirection = normalizeAngle(player->drawDirection);
+
+    trs_DrawModelExt(game->playerModel, player->x, player->y, player->z, 1, 1, player->zscale, 0, 0, player->drawDirection + (GLM_PI / 2));
+}
+
+void playerDestroy(GameState *game, Player *player) {
+
+}
+
+//******************************** Helpers ********************************//
+void cameraControls(GameState *game) {
+    trs_Camera *camera = trs_GetCamera();
+
+    // Follow the player
+    camera->eyes[0] += ((game->player.x - 8) - camera->eyes[0]) * 4 * game->delta;
+    camera->eyes[1] += ((game->player.y - 8) - camera->eyes[1]) * 4 * game->delta;
+    camera->eyes[2] += ((game->player.z + 8) - camera->eyes[2]) * 4 * game->delta;
+    camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
+    camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
+}
+
+//******************************** Game functions ********************************//
 
 void gameStart(GameState *game) {
     // Setup camera
     trs_Camera *camera = trs_GetCamera();
-    camera->eyes[0] = 10;
-    camera->eyes[1] = 10;
-    camera->eyes[2] = 4;
-    camera->rotation = atan2f(camera->eyes[1], camera->eyes[0]) + GLM_PI;
-    camera->rotationZ = -atan2f(camera->eyes[2], sqrtf(powf(camera->eyes[1], 2) + powf(camera->eyes[0], 2)));
+    camera->eyes[0] = (game->player.x - 8);
+    camera->eyes[1] = (game->player.y - 8);
+    camera->eyes[2] = (game->player.z + 8);
+    camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
+    camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
+
+    // Player
+    playerCreate(game, &game->player);
 
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
     game->playerModel = trs_LoadModel("player.obj");
+
+    // Ground plane
+    const float groundSize = 2;
+    trs_Vertex vertices[] = {
+        {{-groundSize, -groundSize, 0, 1},      { 88 / 128.0f,  0 / 128.0f}},
+        {{groundSize, -groundSize, 0, 1},       {104 / 128.0f,  0 / 128.0f}},
+        {{-groundSize, groundSize, 0, 1},       { 88 / 128.0f, 16 / 128.0f}},
+        {{groundSize, -groundSize, 0, 1},       {104 / 128.0f,  0 / 128.0f}},
+        {{groundSize, groundSize, 0, 1},        {104 / 128.0f, 16 / 128.0f}},
+        {{-groundSize, groundSize, 0, 1},       { 88 / 128.0f, 16 / 128.0f}},
+    };
+    game->groundPlane = trs_CreateModel(vertices, 6);
 
     // Test model
     const float size = 1;
@@ -57,97 +196,39 @@ void gameStart(GameState *game) {
     trs_Vertex v18 = {{size + 5, size, 0, 1},   {72 / 128.0f,  8 / 128.0f}};
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18};
     game->testModel = trs_CreateModel(vl, 18);
-
-    // Skybox
-    const float skyboxSize = 25;
-    trs_Vertex sb1 = {{-skyboxSize, -skyboxSize, skyboxSize, 1}};
-    trs_Vertex sb2 = {{skyboxSize, -skyboxSize, skyboxSize, 1}};
-    trs_Vertex sb3 = {{-skyboxSize, skyboxSize, skyboxSize, 1}};
-    trs_Vertex sb4 = {{skyboxSize, -skyboxSize, skyboxSize, 1}};
-    trs_Vertex sb5 = {{skyboxSize, skyboxSize, skyboxSize, 1}};
-    trs_Vertex sb6 = {{-skyboxSize, skyboxSize, skyboxSize, 1}};
-    trs_Vertex sbl[] = {sb1, sb2, sb3, sb4, sb5, sb6};
-    game->skyboxModel = trs_CreateModel(sbl, 6);
 }
 
 void gameEnd(GameState *game) {
+    playerDestroy(game, &game->player);
     trs_FreeFont(game->font);
-    trs_FreeModel(game->skyboxModel);
     trs_FreeModel(game->testModel);
     trs_FreeModel(game->playerModel);
+    trs_FreeModel(game->groundPlane);
     SDL_DestroyTexture(game->compassTex);
 }
 
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
-    trs_Camera *camera = trs_GetCamera();
+    cameraControls(game);
+    playerUpdate(game, &game->player);
 
-    // Look around
-    int x, y;
-    SDL_GetRelativeMouseState(&x, &y);
-    camera->rotation += (float)x * 0.0005;
-    camera->rotationZ -= (float)y * 0.0005;
-    camera->rotationZ = clamp(camera->rotationZ, (-3.14159 / 2) + 0.01, (3.14159 / 2) - 0.01);
-
-    // Move
-    float direction = 0;
-    float directionZ = 0;
-    float speed = 0;
-    const float MOVE_SPEED = 0.08;
-    float pitch = camera->rotationZ;
-    float yaw = camera->rotation;
-
-    vec3 forward = {
-        cos(pitch) * cos(yaw),
-        cos(pitch) * sin(yaw),
-        sin(pitch)
-    };
-
-    vec3 right = {
-        -sin(yaw),
-        cos(yaw),
-        0
-    };
-
-    vec3 up = {0, 0, 1};
-    const float cameraSpeed = 6 * game->delta;
-
-    if (game->keyboard[SDL_SCANCODE_W]) {
-        vec3 move;
-        glm_vec3_scale(forward, cameraSpeed, move);
-        glm_vec3_add(camera->eyes, move, camera->eyes);
-    }
-    if (game->keyboard[SDL_SCANCODE_D]) {
-        vec3 move;
-        glm_vec3_scale(right, cameraSpeed, move);
-        glm_vec3_add(camera->eyes, move, camera->eyes);
-    } 
-    if (game->keyboard[SDL_SCANCODE_A]) {
-        vec3 move;
-        glm_vec3_scale(right, -cameraSpeed, move);
-        glm_vec3_add(camera->eyes, move, camera->eyes);
-    } 
-    if (game->keyboard[SDL_SCANCODE_S]) {
-        vec3 move;
-        glm_vec3_scale(forward, -cameraSpeed, move);
-        glm_vec3_add(camera->eyes, move, camera->eyes);
-    }
-    if (game->keyboard[SDL_SCANCODE_SPACE]) {
-        camera->eyes[2] += cameraSpeed;
-    }
-    if (game->keyboard[SDL_SCANCODE_LCTRL]) {
-        camera->eyes[2] -= cameraSpeed;
-    }
-    if (speed != 0) {
-        camera->eyes[0] -= speed * cos(direction);
-        camera->eyes[1] -= speed * sin(direction);
-        camera->eyes[2] += speed * tan(directionZ);
-    }
-   return true;
+    return true;
 }
 
 void gameDraw(GameState *game) {
-    trs_DrawModelExt(game->playerModel, 0, 0, 0, 1, 1, 1, 0, 0, game->time);
+    // Draw some ground
+    const float z = -1;
+    trs_DrawModelExt(game->groundPlane, -4, -4, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, -4, 0, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, -4, 4, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 0, -4, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 0, 0, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 0, 4, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 4, -4, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 4, 0, z, 1, 1, 1, 0, 0, 0);
+    trs_DrawModelExt(game->groundPlane, 4, 4, z, 1, 1, 1, 0, 0, 0);
+    
+    playerDraw(game, &game->player);
 }
 
 void gameUI(GameState *game) {
@@ -189,7 +270,7 @@ int main(int argc, char *argv[]) {
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_RESIZABLE// | SDL_WINDOW_FULLSCREEN_DESKTOP
     );
     SDL_Renderer *renderer = SDL_CreateRenderer(
         window,
