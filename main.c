@@ -16,20 +16,28 @@ typedef struct Player_t {
     float zscale; // for animations
     bool onGroundLastFrame;
     float squishTimer; // for animations
+    trs_Hitbox hitbox;
 } Player;
 
 typedef struct GameState_t {
+    // Engine
     SDL_Renderer *renderer;
-    Player player;
-    
     bool *keyboard;
+    bool *keyboardPrevious;
     double delta;
     double time;
+
+    // Game stuff
+    Player player;
+
+    // Assets
     trs_Model testModel;
     trs_Font font;
     SDL_Texture *compassTex;
     trs_Model playerModel;
     trs_Model groundPlane;
+    trs_Model cubeModel;
+    trs_Hitbox cubeHitbox;
 } GameState;
 
 //******************************** Player ********************************//
@@ -38,6 +46,11 @@ void playerCreate(GameState *game, Player *player) {
     player->y = 0;
     player->z = 0;
     player->onGroundLastFrame = true;
+    player->hitbox = trs_CalcHitbox(game->playerModel);
+}
+
+void playerDestroy(GameState *game, Player *player) {
+    trs_FreeHitbox(player->hitbox);
 }
 
 bool playerOnGround(GameState *game, Player *player) {
@@ -125,17 +138,25 @@ void playerDraw(GameState *game, Player *player) {
     trs_DrawModelExt(game->playerModel, player->x, player->y, player->z, 1, 1, player->zscale, 0, 0, player->drawDirection + (GLM_PI / 2));
 }
 
-void playerDestroy(GameState *game, Player *player) {
-
-}
-
 //******************************** Helpers ********************************//
 void cameraControls(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
+    static float cameraLookAngle = GLM_PI / 4;
+
+    // Move the camera around the player
+    const float lookSpeed = 2;
+    if (game->keyboard[SDL_SCANCODE_A] && !game->keyboardPrevious[SDL_SCANCODE_A]) {
+        cameraLookAngle += GLM_PI / 2;//game->delta * lookSpeed;
+    }
+    if (game->keyboard[SDL_SCANCODE_D] && !game->keyboardPrevious[SDL_SCANCODE_D]) {
+        cameraLookAngle -= GLM_PI / 2;//game->delta * lookSpeed;
+    }
 
     // Follow the player
-    camera->eyes[0] += ((game->player.x - 8) - camera->eyes[0]) * 4 * game->delta;
-    camera->eyes[1] += ((game->player.y - 8) - camera->eyes[1]) * 4 * game->delta;
+    float cameraX = game->player.x - (12 * cos(cameraLookAngle));
+    float cameraY = game->player.y - (12 * sin(cameraLookAngle));
+    camera->eyes[0] += ((cameraX) - camera->eyes[0]) * 4 * game->delta;
+    camera->eyes[1] += ((cameraY) - camera->eyes[1]) * 4 * game->delta;
     camera->eyes[2] += ((game->player.z + 8) - camera->eyes[2]) * 4 * game->delta;
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
@@ -152,13 +173,11 @@ void gameStart(GameState *game) {
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 
-    // Player
-    playerCreate(game, &game->player);
-
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
     game->playerModel = trs_LoadModel("player.obj");
+    game->cubeModel = trs_LoadModel("cube.obj");
 
     // Ground plane
     const float groundSize = 2;
@@ -197,6 +216,12 @@ void gameStart(GameState *game) {
     trs_Vertex v18 = {{size + 5, size, 0, 1},   {72 / 128.0f,  8 / 128.0f}};
     trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18};
     game->testModel = trs_CreateModel(vl, 18);
+    
+    // Player
+    playerCreate(game, &game->player);
+
+    // Test hitboxes
+    game->cubeHitbox = trs_CalcHitbox(game->cubeModel);
 }
 
 void gameEnd(GameState *game) {
@@ -205,6 +230,8 @@ void gameEnd(GameState *game) {
     trs_FreeModel(game->testModel);
     trs_FreeModel(game->playerModel);
     trs_FreeModel(game->groundPlane);
+    trs_FreeModel(game->cubeModel);
+    trs_FreeHitbox(game->cubeHitbox);
     SDL_DestroyTexture(game->compassTex);
 }
 
@@ -228,6 +255,8 @@ void gameDraw(GameState *game) {
     trs_DrawModelExt(game->groundPlane, 4, -4, z, 1, 1, 1, 0, 0, 0);
     trs_DrawModelExt(game->groundPlane, 4, 0, z, 1, 1, 1, 0, 0, 0);
     trs_DrawModelExt(game->groundPlane, 4, 4, z, 1, 1, 1, 0, 0, 0);
+
+    trs_DrawModelExt(game->cubeModel, 2, 2, 0, 1, 1, 1, 0, 0, 0);
     
     playerDraw(game, &game->player);
 }
@@ -237,6 +266,11 @@ void gameUI(GameState *game) {
 
     // Draw position
     trs_DrawFont(game->font, 1, 0, "Triangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+
+    // Draw test hit
+    if (trs_Collision(game->cubeHitbox, 2, 2, 0, game->player.hitbox, game->player.x, game->player.y, game->player.z)) {
+        trs_DrawFont(game->font, 1, 8 * 4, "Hit");
+    }
 
     // Draw orientation
     const float startX = 231;
@@ -288,10 +322,12 @@ int main(int argc, char *argv[]) {
     double frameCount = 0;
 
     // Initialize game
-    uint8_t *keyboard = (void*)SDL_GetKeyboardState(NULL);
+    int num;
+    uint8_t *keyboard = (void*)SDL_GetKeyboardState(&num);
     GameState game = {
         .renderer = renderer,
-        .keyboard = (bool*)keyboard
+        .keyboard = (bool*)keyboard,
+        .keyboardPrevious = malloc(num)
     };
     trs_Init(renderer, window, 256, 224);
     gameStart(&game);
@@ -353,9 +389,13 @@ int main(int argc, char *argv[]) {
             snprintf(buffer, 1000, "SDL2 3D %.2ffps", framerate);
             SDL_SetWindowTitle(window, buffer);
         }
+
+        // Copy previous frame
+        memcpy(game.keyboardPrevious, game.keyboard, num);
     }
 
     // Cleanup
+    free(game.keyboardPrevious);
     gameEnd(&game);
     trs_End();
     SDL_DestroyRenderer(renderer);

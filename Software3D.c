@@ -393,8 +393,8 @@ bool trs_Collision(trs_Hitbox hb1, float x1, float y1, float z1, trs_Hitbox hb2,
     };
     glm_vec3_add(h1[0], (vec3){x1, y1, z1}, h1[0]);
     glm_vec3_add(h1[1], (vec3){x1, y1, z1}, h1[1]);
-    glm_vec3_add(h2[0], (vec3){x1, y1, z1}, h2[0]);
-    glm_vec3_add(h2[1], (vec3){x1, y1, z1}, h2[1]);
+    glm_vec3_add(h2[0], (vec3){x2, y2, z2}, h2[0]);
+    glm_vec3_add(h2[1], (vec3){x2, y2, z2}, h2[1]);
 
     return glm_aabb_aabb(h1, h2);
 }
