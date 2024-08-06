@@ -21,6 +21,7 @@ typedef struct Player_t {
 typedef struct GameState_t {
     SDL_Renderer *renderer;
     Player player;
+    
     bool *keyboard;
     double delta;
     double time;

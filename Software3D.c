@@ -1,10 +1,14 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
+#define CUTE_SOUND_IMPLEMENTATION
+#define CUTE_SOUND_FORCE_SDL
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include "stb_image.h"
 #include "tinyobj_loader_c.h"
+#include "cute_sound.h"
 #include "Software3D.h"
 
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -50,6 +54,7 @@ static trs_GameState gGameState;
 static int gTriangleCount;
 static int gTinyOBJSize;
 static void *gTinyOBJBuffer;
+static cs_context_t *gCuteSound;
 
 typedef struct trs_TriangleDepth_t {
     int index;
@@ -398,6 +403,31 @@ void trs_FreeHitbox(trs_Hitbox hb) {
     free(hb);
 }
 
+//----------------- Sound Methods -----------------//
+
+trs_Sound trs_LoadSound(const char *filename) {
+    cs_error_t err;
+    void *out = cs_load_wav(filename, &err);
+    trs_Assert(out != NULL);
+    return out;
+}
+
+void trs_PlaySound(trs_Sound sound, float volume, bool looping) {
+    cs_sound_params_t p = {
+        .looped = looping,
+        .paused = false,
+        .volume = volume
+    };
+    cs_play_sound(sound, p);
+}
+
+void trs_StopAllSound() {
+    cs_stop_all_playing_sounds();
+}
+
+void trs_FreeSound(trs_Sound sound) {
+    cs_free_audio_source(sound);
+}
 
 //----------------- Main Methods -----------------//
 
@@ -415,12 +445,22 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
     gGameState->target = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, logicalWidth, logicalHeight);
     trs_CheckSDL(gGameState->target);
 
+    // Cute sound
+    cs_init(NULL, 44100, 1024 * 1024, &gCuteSound);
+
     // Perspective matrix
     glm_mat4_identity(gGameState->perspective);
     glm_perspective(glm_rad(45.0f), logicalWidth / logicalHeight, 0.1, 100, gGameState->perspective);
 
     // Load uv texture
     gGameState->uvtexture = trs_LoadPNG("textures.png");
+}
+
+void trs_End() {
+    cs_stop_all_playing_sounds();
+    SDL_DestroyTexture(gGameState->uvtexture);
+    SDL_DestroyTexture(gGameState->target);
+    trs_TriangleListEmpty(&gGameState->triangleList);
 }
 
 void trs_BeginFrame() {
@@ -578,12 +618,6 @@ SDL_Texture *trs_EndFrame(float *width, float *height, bool resetTarget) {
     if (height != NULL)
         *height = gGameState->logicalHeight;
     return gGameState->target;
-}
-
-void trs_End() {
-    SDL_DestroyTexture(gGameState->uvtexture);
-    SDL_DestroyTexture(gGameState->target);
-    trs_TriangleListEmpty(&gGameState->triangleList);
 }
 
 int trs_GetTriangleCount() {

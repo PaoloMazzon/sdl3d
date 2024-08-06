@@ -42,6 +42,7 @@ struct trs_Hitbox_t {
     vec3 box[2];
 };
 typedef struct trs_Hitbox_t *trs_Hitbox;
+typedef void *trs_Sound;
 
 // Font
 trs_Font trs_LoadFont(const char *filename, int w, int h); // Expects each character to be w*h and ascii 32-128
@@ -69,6 +70,12 @@ trs_Model trs_LoadModel(const char *filename); // loads a model from a .obj
 void trs_DrawModel(trs_Model model, mat4 modelMatrix);
 void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, float scaleY, float scaleZ, float rotationX, float rotationY, float rotationZ);
 void trs_FreeModel(trs_Model model);
+
+// Sounds
+trs_Sound trs_LoadSound(const char *filename);
+void trs_PlaySound(trs_Sound sound, float volume, bool looping);
+void trs_StopAllSound();
+void trs_FreeSound(trs_Sound sound);
 
 // AABB hitboxes (slight abstraction over cglm)
 trs_Hitbox trs_CreateHitbox(float x1, float y1, float z1, float x2, float y2, float z2);
