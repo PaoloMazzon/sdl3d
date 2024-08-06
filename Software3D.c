@@ -331,6 +331,74 @@ void trs_FreeFont(trs_Font font) {
     }
 }
 
+//----------------- Hitbox -----------------//
+
+trs_Hitbox trs_CreateHitbox(float x1, float y1, float z1, float x2, float y2, float z2) {
+    trs_Hitbox hb = trs_CheckMem(malloc(sizeof(struct trs_Hitbox_t)));
+    hb->box[0][0] = x1;
+    hb->box[0][1] = y1;
+    hb->box[0][2] = z1;
+    hb->box[1][0] = x2;
+    hb->box[1][1] = y2;
+    hb->box[1][2] = z2;
+    return hb;
+}
+
+trs_Hitbox trs_CalcHitbox(trs_Model model) {
+    float x1 = 1000000;
+    float y1 = 1000000;
+    float z1 = 1000000;
+    float x2 = -1000000;
+    float y2 = -1000000;
+    float z2 = -1000000;
+    for (int vertex = 0; vertex < model->count; vertex++) {
+        if (model->vertices[vertex].position[0] < x1)
+            x1 = model->vertices[vertex].position[0];
+        if (model->vertices[vertex].position[1] < y1)
+            y1 = model->vertices[vertex].position[1];
+        if (model->vertices[vertex].position[2] < z1)
+            z1 = model->vertices[vertex].position[2];
+        if (model->vertices[vertex].position[0] > x2)
+            x2 = model->vertices[vertex].position[0];
+        if (model->vertices[vertex].position[1] > y2)
+            y2 = model->vertices[vertex].position[1];
+        if (model->vertices[vertex].position[2] > z2)
+            z2 = model->vertices[vertex].position[2];
+    }
+    
+    // Account for planes
+    if (x1 - x2 == 0)
+        x1 -= 0.01;
+    if (y1 - y2 == 0)
+        y1 -= 0.01;
+    if (z1 - z2 == 0)
+        z1 -= 0.01;
+
+    return trs_CreateHitbox(x1, y1, z1, x2, y2, z2);
+}
+
+bool trs_Collision(trs_Hitbox hb1, float x1, float y1, float z1, trs_Hitbox hb2, float x2, float y2, float z2) {
+    vec3 h1[2] = {
+        {hb1->box[0][0], hb1->box[0][1], hb1->box[0][2]},
+        {hb1->box[1][0], hb1->box[1][1], hb1->box[1][2]}
+    };
+    vec3 h2[2] = {
+        {hb2->box[0][0], hb2->box[0][1], hb2->box[0][2]},
+        {hb2->box[1][0], hb2->box[1][1], hb2->box[1][2]}
+    };
+    glm_vec3_add(h1[0], (vec3){x1, y1, z1}, h1[0]);
+    glm_vec3_add(h1[1], (vec3){x1, y1, z1}, h1[1]);
+    glm_vec3_add(h2[0], (vec3){x1, y1, z1}, h2[0]);
+    glm_vec3_add(h2[1], (vec3){x1, y1, z1}, h2[1]);
+
+    return glm_aabb_aabb(h1, h2);
+}
+
+void trs_FreeHitbox(trs_Hitbox hb) {
+    free(hb);
+}
+
+
 //----------------- Main Methods -----------------//
 
 trs_Camera *trs_GetCamera() {

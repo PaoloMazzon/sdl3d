@@ -38,6 +38,10 @@ struct trs_Font_t {
 };
 typedef struct trs_Font_t *trs_Font;
 
+struct trs_Hitbox_t {
+    vec3 box[2];
+};
+typedef struct trs_Hitbox_t *trs_Hitbox;
 
 // Font
 trs_Font trs_LoadFont(const char *filename, int w, int h); // Expects each character to be w*h and ascii 32-128
@@ -65,6 +69,12 @@ trs_Model trs_LoadModel(const char *filename); // loads a model from a .obj
 void trs_DrawModel(trs_Model model, mat4 modelMatrix);
 void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, float scaleY, float scaleZ, float rotationX, float rotationY, float rotationZ);
 void trs_FreeModel(trs_Model model);
+
+// AABB hitboxes (slight abstraction over cglm)
+trs_Hitbox trs_CreateHitbox(float x1, float y1, float z1, float x2, float y2, float z2);
+trs_Hitbox trs_CalcHitbox(trs_Model model); // approximates a hitbox from a model
+bool trs_Collision(trs_Hitbox hb1, float x1, float y1, float z1, trs_Hitbox hb2, float x2, float y2, float z2);
+void trs_FreeHitbox(trs_Hitbox hb);
 
 // Core renderer
 void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, float logicalHeight);

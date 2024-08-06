@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_RESIZABLE// | SDL_WINDOW_FULLSCREEN_DESKTOP
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_FULLSCREEN_DESKTOP
     );
     SDL_Renderer *renderer = SDL_CreateRenderer(
         window,
