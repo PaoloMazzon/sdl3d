@@ -62,6 +62,8 @@ typedef struct trs_TriangleDepth_t {
     float lowestDepth;
 } trs_TriangleDepth;
 
+trs_Hitbox trs_CalcHitbox(trs_Model model);
+
 //----------------- UTILITY METHODS -----------------//
 void _trs_CheckReturn(trs_ReturnType type, int line) {
     if (type == TRS_RETURN_TYPE_FAILED) {
@@ -228,6 +230,8 @@ trs_Model trs_LoadModel(const char *filename) {
     tinyobj_shapes_free(shapes, num_shapes);
     tinyobj_materials_free(materials, num_materials);
 
+    model->hitbox = trs_CalcHitbox(model);
+
     return model;
 }
 
@@ -241,6 +245,8 @@ trs_Model trs_CreateModel(trs_Vertex *vertices, int count) {
     for (int i = 0; i < count; i++) {
         newVertices[i] = vertices[i];
     }
+
+    model->hitbox = trs_CalcHitbox(model);
 
     return model;
 }
@@ -261,8 +267,8 @@ void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, 
     mat4 modelMatrix = GLM_MAT4_IDENTITY_INIT;
     vec3 translate = {x, y, z};
     vec3 scale = {scaleX, scaleY, scaleZ};
-    glm_scale(modelMatrix, scale);
     glm_translate(modelMatrix, translate);
+    glm_scale(modelMatrix, scale);
     if (rotationX != 0)
         glm_rotate_x(modelMatrix, rotationX, modelMatrix);
     if (rotationY != 0)
@@ -276,6 +282,7 @@ void trs_DrawModelExt(trs_Model model, float x, float y, float z, float scaleX, 
 void trs_FreeModel(trs_Model model) {
     if (model != NULL) {
         free(model->vertices);
+        trs_FreeHitbox(model->hitbox);
         free(model);
     }
 }
@@ -397,6 +404,10 @@ bool trs_Collision(trs_Hitbox hb1, float x1, float y1, float z1, trs_Hitbox hb2,
     glm_vec3_add(h2[1], (vec3){x2, y2, z2}, h2[1]);
 
     return glm_aabb_aabb(h1, h2);
+}
+
+trs_Hitbox trs_GetModelHitbox(trs_Model model) {
+    return model->hitbox;
 }
 
 void trs_FreeHitbox(trs_Hitbox hb) {

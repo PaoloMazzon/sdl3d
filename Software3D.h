@@ -20,12 +20,6 @@ typedef struct trs_TriangleList_t {
     int size;
 } trs_TriangleList;
 
-struct trs_Model_t {
-    trs_Vertex *vertices;
-    int count;
-};
-typedef struct trs_Model_t *trs_Model;
-
 typedef struct trs_Camera_t {
     vec3 eyes;
     float rotation;
@@ -44,6 +38,13 @@ struct trs_Hitbox_t {
 };
 typedef struct trs_Hitbox_t *trs_Hitbox;
 typedef void *trs_Sound;
+
+struct trs_Model_t {
+    trs_Vertex *vertices;
+    trs_Hitbox hitbox;
+    int count;
+};
+typedef struct trs_Model_t *trs_Model;
 
 // Font
 trs_Font trs_LoadFont(const char *filename, int w, int h); // Expects each character to be w*h and ascii 32-128
@@ -80,8 +81,8 @@ void trs_FreeSound(trs_Sound sound);
 
 // AABB hitboxes (slight abstraction over cglm)
 trs_Hitbox trs_CreateHitbox(float x1, float y1, float z1, float x2, float y2, float z2);
-trs_Hitbox trs_CalcHitbox(trs_Model model); // approximates a hitbox from a model
 bool trs_Collision(trs_Hitbox hb1, float x1, float y1, float z1, trs_Hitbox hb2, float x2, float y2, float z2);
+trs_Hitbox trs_GetModelHitbox(trs_Model model); // returns the hitbox assiciated with a model
 void trs_FreeHitbox(trs_Hitbox hb);
 
 // Core renderer

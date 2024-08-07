@@ -21,7 +21,12 @@ typedef struct Wall_t {
     float x, y, z;
     vec3 velocity; // as x,y,z components
     trs_Hitbox hitbox;
+    bool active;
 } Wall;
+
+typedef struct Level_t {
+    Wall *walls; // array of walls in the game world
+} Level;
 
 typedef struct GameState_t {
     // Engine
@@ -33,7 +38,7 @@ typedef struct GameState_t {
 
     // Game stuff
     Player player;
-    Wall *walls; // array of walls in the game world
+    Level level;
 
     // Assets
     trs_Model testModel;
@@ -42,5 +47,4 @@ typedef struct GameState_t {
     trs_Model playerModel;
     trs_Model groundPlane;
     trs_Model cubeModel;
-    trs_Hitbox cubeHitbox;
 } GameState;

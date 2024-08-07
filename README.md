@@ -3,8 +3,8 @@ SDL2 3D
 ![basic demo](demo.gif)
 
 
-This is a fully functional PS1-style 3D renderer written in software (kinda) using SDL_RenderGeometry.
-It uses cglm to perform the necessary linear algebra as well as assist in the frustum culling.
+This is a WIP 3D platformer written in C/SDL2 that uses SDL2's `SDL_RenderGeometry` to
+make a 3D game.
 
 Features:
 

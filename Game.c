@@ -1,43 +1,12 @@
 #include <SDL2/SDL.h>
 #include "Software3D.h"
 #include "Game.h"
+#include "Level.h"
 #include "Player.h"
-
-//******************************** Helpers ********************************//
-static void cameraControls(GameState *game) {
-    trs_Camera *camera = trs_GetCamera();
-    static float cameraLookAngle = GLM_PI / 4;
-
-    // Move the camera around the player
-    const float lookSpeed = 2;
-    if (game->keyboard[SDL_SCANCODE_A] && !game->keyboardPrevious[SDL_SCANCODE_A]) {
-        cameraLookAngle += GLM_PI / 2;//game->delta * lookSpeed;
-    }
-    if (game->keyboard[SDL_SCANCODE_D] && !game->keyboardPrevious[SDL_SCANCODE_D]) {
-        cameraLookAngle -= GLM_PI / 2;//game->delta * lookSpeed;
-    }
-
-    // Follow the player
-    float cameraX = game->player.x - (12 * cos(cameraLookAngle));
-    float cameraY = game->player.y - (12 * sin(cameraLookAngle));
-    camera->eyes[0] += ((cameraX) - camera->eyes[0]) * 4 * game->delta;
-    camera->eyes[1] += ((cameraY) - camera->eyes[1]) * 4 * game->delta;
-    camera->eyes[2] += ((game->player.z + 8) - camera->eyes[2]) * 4 * game->delta;
-    camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
-    camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
-}
 
 //******************************** Game functions ********************************//
 
 void gameStart(GameState *game) {
-    // Setup camera
-    trs_Camera *camera = trs_GetCamera();
-    camera->eyes[0] = (game->player.x - 8);
-    camera->eyes[1] = (game->player.y - 8);
-    camera->eyes[2] = (game->player.z + 8);
-    camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
-    camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
-
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
@@ -83,59 +52,38 @@ void gameStart(GameState *game) {
     game->testModel = trs_CreateModel(vl, 18);
     
     // Player
+    levelCreate(game);
     playerCreate(game, &game->player);
-
-    // Test hitboxes
-    game->cubeHitbox = trs_CalcHitbox(game->cubeModel);
 }
 
 void gameEnd(GameState *game) {
+    levelDestroy(game);
     playerDestroy(game, &game->player);
     trs_FreeFont(game->font);
     trs_FreeModel(game->testModel);
     trs_FreeModel(game->playerModel);
     trs_FreeModel(game->groundPlane);
     trs_FreeModel(game->cubeModel);
-    trs_FreeHitbox(game->cubeHitbox);
     SDL_DestroyTexture(game->compassTex);
 }
 
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
-    cameraControls(game);
-    playerUpdate(game, &game->player);
+    levelUpdate(game);
 
     return true;
 }
 
 void gameDraw(GameState *game) {
-    // Draw some ground
-    const float z = -1;
-    trs_DrawModelExt(game->groundPlane, -4, -4, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, -4, 0, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, -4, 4, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 0, -4, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 0, 0, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 0, 4, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 4, -4, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 4, 0, z, 1, 1, 1, 0, 0, 0);
-    trs_DrawModelExt(game->groundPlane, 4, 4, z, 1, 1, 1, 0, 0, 0);
-
-    trs_DrawModelExt(game->cubeModel, 2, 2, 0, 1, 1, 1, 0, 0, 0);
-    
-    playerDraw(game, &game->player);
+    levelDraw(game);
 }
 
 void gameUI(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
+    levelDrawUI(game);
 
     // Draw position
     trs_DrawFont(game->font, 1, 0, "Triangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
-
-    // Draw test hit
-    if (trs_Collision(game->cubeHitbox, 2, 2, 0, game->player.hitbox, game->player.x, game->player.y, game->player.z)) {
-        trs_DrawFont(game->font, 1, 8 * 4, "Hit");
-    }
 
     // Draw orientation
     const float startX = 231;

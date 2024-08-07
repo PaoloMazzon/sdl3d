@@ -69,7 +69,7 @@ void playerUpdate(GameState *game, Player *player) {
     if (player->squishTimer > 0) {
         const float percent = (player->squishTimer / squishDuration);
         player->squishTimer -= game->delta;
-        player->zscale = 1 - ((-powf((2 * percent) - 1, 2) + 1) * 0.8);
+        player->zscale = 1 - ((-powf((2 * percent) - 1, 2) + 1) * 0.6);
     }
 
     player->onGroundLastFrame = playerOnGround(game, player);
@@ -97,5 +97,5 @@ void playerDraw(GameState *game, Player *player) {
     player->drawDirection += difference * 10 * game->delta;
     player->drawDirection = normalizeAngle(player->drawDirection);
 
-    trs_DrawModelExt(game->playerModel, player->x, player->y, player->z, 1, 1, player->zscale, 0, 0, player->drawDirection + (GLM_PI / 2));
+    trs_DrawModelExt(game->playerModel, player->x, player->y, player->z, 1 / player->zscale, 1 / player->zscale, player->zscale, 0, 0, player->drawDirection + (GLM_PI / 2));
 }
