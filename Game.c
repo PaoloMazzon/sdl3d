@@ -11,7 +11,7 @@ void gameStart(GameState *game) {
     game->font = trs_LoadFont("font.png", 7, 8);
     game->compassTex = trs_LoadPNG("compass.png");
     game->playerModel = trs_LoadModel("player.obj");
-    game->cubeModel = trs_LoadModel("cube.obj");
+    game->platformModel = trs_LoadModel("platform.obj");
 
     // Ground plane
     const float groundSize = 2;
@@ -61,9 +61,8 @@ void gameEnd(GameState *game) {
     playerDestroy(game, &game->player);
     trs_FreeFont(game->font);
     trs_FreeModel(game->testModel);
-    trs_FreeModel(game->playerModel);
     trs_FreeModel(game->groundPlane);
-    trs_FreeModel(game->cubeModel);
+    trs_FreeModel(game->platformModel);
     SDL_DestroyTexture(game->compassTex);
 }
 

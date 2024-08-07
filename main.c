@@ -100,6 +100,12 @@ int main(int argc, char *argv[]) {
             SDL_SetWindowTitle(window, buffer);
         }
 
+        // Fullscreen
+        if (game.keyboard[SDL_SCANCODE_LALT] && game.keyboard[SDL_SCANCODE_RETURN] && !game.keyboardPrevious[SDL_SCANCODE_RETURN]) {
+            bool fullscreen = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
+            SDL_SetWindowFullscreen(window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+        }
+
         // Copy previous frame
         memcpy(game.keyboardPrevious, game.keyboard, num);
     }

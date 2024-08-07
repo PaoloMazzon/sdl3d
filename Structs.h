@@ -21,11 +21,14 @@ typedef struct Wall_t {
     float x, y, z;
     vec3 velocity; // as x,y,z components
     trs_Hitbox hitbox;
+    trs_Model model;
     bool active;
 } Wall;
 
 typedef struct Level_t {
     Wall *walls; // array of walls in the game world
+    int wallCount;
+    Wall *mostRecentWall; // whatever wall was collided with most recently
 } Level;
 
 typedef struct GameState_t {
@@ -46,5 +49,5 @@ typedef struct GameState_t {
     SDL_Texture *compassTex;
     trs_Model playerModel;
     trs_Model groundPlane;
-    trs_Model cubeModel;
+    trs_Model platformModel;
 } GameState;

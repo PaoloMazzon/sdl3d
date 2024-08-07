@@ -1,13 +1,14 @@
 #include <SDL2/SDL.h>
 #include "Software3D.h"
 #include "Player.h"
+#include "Level.h"
 
 void playerCreate(GameState *game, Player *player) {
     player->x = 0;
     player->y = 0;
     player->z = 0;
     player->onGroundLastFrame = true;
-    player->hitbox = trs_CalcHitbox(game->playerModel);
+    player->hitbox = trs_GetModelHitbox(game->playerModel);
 }
 
 void playerDestroy(GameState *game, Player *player) {
@@ -15,25 +16,26 @@ void playerDestroy(GameState *game, Player *player) {
 }
 
 bool playerOnGround(GameState *game, Player *player) {
-    return player->z <= 0;
+    return player->z <= 0 || touchingWall(&game->level, player->hitbox, player->x, player->y, player->z - 0.1);
 }
 
 void playerUpdate(GameState *game, Player *player) {
     trs_Camera *cam = trs_GetCamera();
     const float speed = 0.3 * game->delta;
-    const float gravity = 15 * game->delta;
-    const float terminalVelocity = -10;
+    const float gravity = 0.8 * game->delta;
+    const float terminalVelocity = -0.5;
     const float topSpeed = 8;
     const float friction = 0.8 * game->delta;
-    const float jumpSpeed = 30;
-    const float jumpDuration = 0.8; // in seconds
+    const float jumpSpeed = 2.3;
+    const float jumpDuration = 0.3; // in seconds
     const float squishDuration = 0.3;
+    const bool onGround = playerOnGround(game, player);
 
     // Get player input
-    player->velocityX = player->velocityY = player->velocityZ = 0;
+    player->velocityX = player->velocityY = 0;
     player->velocityX = (float)game->keyboard[SDL_SCANCODE_RIGHT] - (float)game->keyboard[SDL_SCANCODE_LEFT];
     player->velocityY = (float)game->keyboard[SDL_SCANCODE_UP] - (float)game->keyboard[SDL_SCANCODE_DOWN];
-    const bool jump = playerOnGround(game, player) && game->keyboard[SDL_SCANCODE_Z];
+    const bool jump = onGround && game->keyboard[SDL_SCANCODE_Z] && !game->keyboardPrevious[SDL_SCANCODE_Z];
 
     // Move relative to the camera's placement
     if (player->velocityX != 0 || player->velocityY != 0) {
@@ -45,8 +47,10 @@ void playerUpdate(GameState *game, Player *player) {
     const float xComponent = cos(player->direction);
     const float yComponent = sin(player->direction);
 
-    player->x += xComponent * player->speed;
-    player->y += yComponent * player->speed;
+    if (!touchingWall(&game->level, player->hitbox, player->x + (xComponent * player->speed), player->y, player->z))
+        player->x += xComponent * player->speed;
+    if (!touchingWall(&game->level, player->hitbox, player->x, player->y + (yComponent * player->speed), player->z))
+        player->y += yComponent * player->speed;
 
     // Jump & gravity
     if (jump)
@@ -59,11 +63,20 @@ void playerUpdate(GameState *game, Player *player) {
     } else {
         player->zscale = 1;
     }
-    player->velocityZ = clamp(player->velocityZ - gravity, terminalVelocity, 9999999);
-    player->z = clamp(player->z + (player->velocityZ), 0, 999);
+    if (!onGround)
+        player->velocityZ = clamp(player->velocityZ - gravity, terminalVelocity, 9999999);
+
+    // Collide with walls below
+    if (!touchingWall(&game->level, player->hitbox, player->x, player->y, player->z + player->velocityZ)) {
+        player->z = clamp(player->z + (player->velocityZ), 0, 999);
+    } else {
+        // Sit neatly on the wall below
+        if (game->level.mostRecentWall->z + game->level.mostRecentWall->hitbox->box[1][2] < player->z)
+            player->z = game->level.mostRecentWall->z + game->level.mostRecentWall->hitbox->box[1][2] + 0.1;
+    }
 
     // Squash animation
-    if (playerOnGround(game, player) && !player->onGroundLastFrame) {
+    if (onGround && !player->onGroundLastFrame) {
         player->squishTimer = squishDuration;
     }
     if (player->squishTimer > 0) {
@@ -72,7 +85,10 @@ void playerUpdate(GameState *game, Player *player) {
         player->zscale = 1 - ((-powf((2 * percent) - 1, 2) + 1) * 0.6);
     }
 
-    player->onGroundLastFrame = playerOnGround(game, player);
+    if (onGround)
+        player->velocityZ = 0;
+
+    player->onGroundLastFrame = onGround;
 }
 
 static double normalizeAngle(double angle) {
