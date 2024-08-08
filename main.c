@@ -95,9 +95,7 @@ int main(int argc, char *argv[]) {
             framerate = frameCount / ((double)(SDL_GetPerformanceCounter() - startOfSecond) / (double)SDL_GetPerformanceFrequency());
             frameCount = 0;
             startOfSecond = SDL_GetPerformanceCounter();
-            char buffer[1000];
-            snprintf(buffer, 1000, "SDL2 3D %.2ffps", framerate);
-            SDL_SetWindowTitle(window, buffer);
+            game.fps = framerate;
         }
 
         // Fullscreen

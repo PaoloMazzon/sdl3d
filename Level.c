@@ -17,7 +17,7 @@ static void cameraControls(GameState *game) {
 
     // Follow the player
     const float distance = game->keyboard[SDL_SCANCODE_V] ? 6 : 12;
-    const float zdistance = game->keyboard[SDL_SCANCODE_V] ? 4 : 8;
+    const float zdistance = 8;
     float cameraX = game->player.x - (distance * cos(cameraLookAngle));
     float cameraY = game->player.y - (distance * sin(cameraLookAngle));
     camera->eyes[0] += ((cameraX) - camera->eyes[0]) * 4 * game->delta;
@@ -69,7 +69,7 @@ void levelCreate(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
     camera->eyes[0] = (game->player.x - 8);
     camera->eyes[1] = (game->player.y - 8);
-    camera->eyes[2] = (game->player.z + 8);
+    camera->eyes[2] = (game->player.z + 5000);
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 

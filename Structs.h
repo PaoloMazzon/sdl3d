@@ -38,6 +38,7 @@ typedef struct GameState_t {
     bool *keyboardPrevious;
     double delta;
     double time;
+    double fps;
 
     // Game stuff
     Player player;
@@ -45,6 +46,7 @@ typedef struct GameState_t {
 
     // Assets
     trs_Model testModel;
+    SDL_Texture *hintTex;
     trs_Font font;
     SDL_Texture *compassTex;
     trs_Model playerModel;

@@ -12,6 +12,7 @@ void gameStart(GameState *game) {
     game->compassTex = trs_LoadPNG("compass.png");
     game->playerModel = trs_LoadModel("player.obj");
     game->platformModel = trs_LoadModel("platform.obj");
+    game->hintTex = trs_LoadPNG("hint.png");
 
     // Ground plane
     const float groundSize = 2;
@@ -64,6 +65,7 @@ void gameEnd(GameState *game) {
     trs_FreeModel(game->groundPlane);
     trs_FreeModel(game->platformModel);
     SDL_DestroyTexture(game->compassTex);
+    SDL_DestroyTexture(game->hintTex);
 }
 
 // Returns false if the game should quit
@@ -81,8 +83,11 @@ void gameUI(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
     levelDrawUI(game);
 
-    // Draw position
-    trs_DrawFont(game->font, 1, 0, "Triangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+    // Debug
+    trs_DrawFont(game->font, 1, 0, "FPS: %0.2f\nTriangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", game->fps, trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+
+    // Hint
+    SDL_RenderCopy(game->renderer, game->hintTex, NULL, &((SDL_Rect){.x = 0, .y = 205, .w = 81, .h = 19}));
 
     // Draw orientation
     const float startX = 231;
@@ -96,15 +101,16 @@ void gameUI(GameState *game) {
     SDL_RenderCopy(game->renderer, game->compassTex, NULL, &dst);
 
     // Horizontal orientation
-    const float horiX = (cosf(camera->rotation) * 10);
-    const float horiY = (sinf(camera->rotation) * 10);
+    const float rotation = camera->rotation - ((3 * GLM_PI) / 4);
+    const float horiX = (cosf(rotation) * 10);
+    const float horiY = (sinf(rotation) * 10);
     SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
     SDL_RenderDrawLine(game->renderer, startX, startY, startX + horiX, startY + horiY);
 
     // Vertical orientation
     const float verticalPercent = (camera->rotationZ / GLM_PI);
     SDL_SetRenderDrawColor(game->renderer, 0, 0, 255, 255);
-    SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY + (verticalPercent * 20));
+    SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY - (verticalPercent * 20));
     SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
     SDL_RenderDrawPoint(game->renderer, startX, startY);
 }
