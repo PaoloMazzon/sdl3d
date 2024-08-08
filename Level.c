@@ -8,19 +8,21 @@ static void cameraControls(GameState *game) {
 
     // Move the camera around the player
     const float lookSpeed = 2;
-    if (game->keyboard[SDL_SCANCODE_A] && !game->keyboardPrevious[SDL_SCANCODE_A]) {
+    if (game->keyboard[SDL_SCANCODE_X] && !game->keyboardPrevious[SDL_SCANCODE_X]) {
         cameraLookAngle += GLM_PI / 2;//game->delta * lookSpeed;
     }
-    if (game->keyboard[SDL_SCANCODE_D] && !game->keyboardPrevious[SDL_SCANCODE_D]) {
+    if (game->keyboard[SDL_SCANCODE_C] && !game->keyboardPrevious[SDL_SCANCODE_C]) {
         cameraLookAngle -= GLM_PI / 2;//game->delta * lookSpeed;
     }
 
     // Follow the player
-    float cameraX = game->player.x - (12 * cos(cameraLookAngle));
-    float cameraY = game->player.y - (12 * sin(cameraLookAngle));
+    const float distance = game->keyboard[SDL_SCANCODE_V] ? 6 : 12;
+    const float zdistance = game->keyboard[SDL_SCANCODE_V] ? 4 : 8;
+    float cameraX = game->player.x - (distance * cos(cameraLookAngle));
+    float cameraY = game->player.y - (distance * sin(cameraLookAngle));
     camera->eyes[0] += ((cameraX) - camera->eyes[0]) * 4 * game->delta;
     camera->eyes[1] += ((cameraY) - camera->eyes[1]) * 4 * game->delta;
-    camera->eyes[2] += ((game->player.z + 8) - camera->eyes[2]) * 4 * game->delta;
+    camera->eyes[2] += ((game->player.z + zdistance) - camera->eyes[2]) * 4 * game->delta;
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 }
@@ -127,5 +129,5 @@ void levelDraw(GameState *game) {
 }
 
 void levelDrawUI(GameState *game) {
-    trs_DrawFont(game->font, 1, 8 * 4, "Z velocity: %0.4f", game->player.velocityZ);
+    
 }
