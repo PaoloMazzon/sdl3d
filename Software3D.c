@@ -458,6 +458,7 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
 
     // Cute sound
     cs_init(NULL, 44100, 1024 * 1024, &gCuteSound);
+    cs_spawn_mix_thread();
 
     // Perspective matrix
     glm_mat4_identity(gGameState->perspective);

@@ -28,28 +28,26 @@ void gameStart(GameState *game) {
 
     // Test model
     const float size = 1;
-    trs_Vertex v1 = {{-size, -size, 0, 1},      { 8 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v2 = {{size, -size, 0, 1},       {24 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v3 = {{-size, size, 0, 1},       { 8 / 128.0f, 16 / 128.0f}};
-    trs_Vertex v4 = {{size, -size, 0, 1},       {24 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v5 = {{size, size, 0, 1},        {24 / 128.0f, 16 / 128.0f}};
-    trs_Vertex v6 = {{-size, size, 0, 1},       { 8 / 128.0f, 16 / 128.0f}};
-    
-    trs_Vertex v7 = {{-size, -size, 0, 1},      {24 / 128.0f, 0 / 128.0f}};
-    trs_Vertex v8 = {{-size, -size, -size, 1},  {24 / 128.0f, 8 / 128.0f}};
-    trs_Vertex v9 = {{-size, size, 0, 1},       { 8 / 128.0f, 0 / 128.0f}};
-    trs_Vertex v10 = {{-size, size, 0, 1},      { 8 / 128.0f, 0 / 128.0f}};
-    trs_Vertex v11 = {{-size, size, -size, 1},  { 8 / 128.0f, 8 / 128.0f}};
-    trs_Vertex v12 = {{-size, -size, -size, 1}, {24 / 128.0f, 8 / 128.0f}};
-    
-    trs_Vertex v13 = {{-size + 5, -size, 0, 1}, {40 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v14 = {{size + 5, -size, 0, 1},  {56 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v15 = {{-size + 5, size, 0, 1},  {40 / 128.0f, 16 / 128.0f}};
-    
-    trs_Vertex v16 = {{-size + 5, size, -1, 1}, {56 / 128.0f,  0 / 128.0f}};
-    trs_Vertex v17 = {{-size + 5, size, 0, 1},  {56 / 128.0f,  8 / 128.0f}};
-    trs_Vertex v18 = {{size + 5, size, 0, 1},   {72 / 128.0f,  8 / 128.0f}};
-    trs_Vertex vl[] = {v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18};
+    trs_Vertex vl[] = {
+        {{-size, -size, 0, 1},     { 8 / 128.0f,  0 / 128.0f}},
+        {{size, -size, 0, 1},      {24 / 128.0f,  0 / 128.0f}},
+        {{-size, size, 0, 1},      { 8 / 128.0f, 16 / 128.0f}},
+        {{size, -size, 0, 1},      {24 / 128.0f,  0 / 128.0f}},
+        {{size, size, 0, 1},       {24 / 128.0f, 16 / 128.0f}},
+        {{-size, size, 0, 1},      { 8 / 128.0f, 16 / 128.0f}},
+        {{-size, -size, 0, 1},     {24 / 128.0f,  0 / 128.0f}},
+        {{-size, -size, -size, 1}, {24 / 128.0f,  8 / 128.0f}},
+        {{-size, size, 0, 1},      { 8 / 128.0f,  0 / 128.0f}},
+        {{-size, size, 0, 1},      { 8 / 128.0f,  0 / 128.0f}},
+        {{-size, size, -size, 1},  { 8 / 128.0f,  8 / 128.0f}},
+        {{-size, -size, -size, 1}, {24 / 128.0f,  8 / 128.0f}},
+        {{-size + 5, -size, 0, 1}, {40 / 128.0f,  0 / 128.0f}},
+        {{size + 5, -size, 0, 1},  {56 / 128.0f,  0 / 128.0f}},
+        {{-size + 5, size, 0, 1},  {40 / 128.0f, 16 / 128.0f}},
+        {{-size + 5, size, -1, 1}, {56 / 128.0f,  0 / 128.0f}},
+        {{-size + 5, size, 0, 1},  {56 / 128.0f,  8 / 128.0f}},
+        {{size + 5, size, 0, 1},   {72 / 128.0f,  8 / 128.0f}}
+    };
     game->testModel = trs_CreateModel(vl, 18);
     
     // Player
@@ -90,15 +88,9 @@ void gameUI(GameState *game) {
     SDL_RenderCopy(game->renderer, game->hintTex, NULL, &((SDL_Rect){.x = 0, .y = 205, .w = 81, .h = 19}));
 
     // Draw orientation
-    const float startX = 231;
-    const float startY = 23;
-    SDL_Rect dst = {
-        .x = startX - 13,
-        .y = startY - 13,
-        .w = 25,
-        .h = 25
-    };
-    SDL_RenderCopy(game->renderer, game->compassTex, NULL, &dst);
+    const float startX = 230 + 13;
+    const float startY = 13;
+    SDL_RenderCopy(game->renderer, game->compassTex, NULL, &((SDL_Rect){.x = startX - 13, .y = startY - 13, .w = 25, .h = 25}));
 
     // Horizontal orientation
     const float rotation = camera->rotation - ((3 * GLM_PI) / 4);

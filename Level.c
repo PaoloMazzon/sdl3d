@@ -16,7 +16,7 @@ static void cameraControls(GameState *game) {
     }
 
     // Follow the player
-    const float distance = game->keyboard[SDL_SCANCODE_V] ? 6 : 12;
+    const float distance = 12;
     const float zdistance = 8;
     float cameraX = game->player.x - (distance * cos(cameraLookAngle));
     float cameraY = game->player.y - (distance * sin(cameraLookAngle));
@@ -73,6 +73,9 @@ void levelCreate(GameState *game) {
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 
+    // Various
+    game->level.startTime = game->time;
+
     // Setup walls
     game->level.walls = NULL;
     game->level.wallCount = 0;
@@ -93,6 +96,12 @@ void levelCreate(GameState *game) {
         .x = -3,
         .y = 0,
         .z = 4
+    }));
+    addWall(&game->level, &((Wall){
+        .model = game->platformModel,
+        .x = 0,
+        .y = -3,
+        .z = 6
     }));
 }
 
@@ -129,5 +138,9 @@ void levelDraw(GameState *game) {
 }
 
 void levelDrawUI(GameState *game) {
-    
+    char buffer[100];
+    const float time = game->time - game->level.startTime;
+    snprintf(buffer, 100, "=%02d:%02d:%03d", (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
+    const float len = strlen(buffer);
+    trs_DrawFont(game->font, 255 - (len * 7), 224 - 9, "%s", buffer);
 }

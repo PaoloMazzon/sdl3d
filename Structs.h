@@ -29,6 +29,7 @@ typedef struct Level_t {
     Wall *walls; // array of walls in the game world
     int wallCount;
     Wall *mostRecentWall; // whatever wall was collided with most recently
+    double startTime;
 } Level;
 
 typedef struct GameState_t {
