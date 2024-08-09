@@ -3,15 +3,18 @@
 #include "Game.h"
 #include "Level.h"
 #include "Player.h"
+#include "Menu.h"
 
 //******************************** Game functions ********************************//
 
 void gameStart(GameState *game) {
     // Basic game assets
     game->font = trs_LoadFont("font.png", 7, 8);
+    game->menuFont = trs_LoadFont("font2.png", 16, 16);
     game->compassTex = trs_LoadPNG("compass.png");
     game->playerModel = trs_LoadModel("player.obj");
     game->platformModel = trs_LoadModel("platform.obj");
+    game->islandModel = trs_LoadModel("island.obj");
     game->hintTex = trs_LoadPNG("hint.png");
 
     // Ground plane
@@ -51,7 +54,7 @@ void gameStart(GameState *game) {
     game->testModel = trs_CreateModel(vl, 18);
     
     // Player
-    levelCreate(game);
+    menuStart(game, &game->menu);
     playerCreate(game, &game->player);
 }
 
@@ -59,50 +62,48 @@ void gameEnd(GameState *game) {
     levelDestroy(game);
     playerDestroy(game, &game->player);
     trs_FreeFont(game->font);
+    trs_FreeFont(game->menuFont);
     trs_FreeModel(game->testModel);
     trs_FreeModel(game->groundPlane);
     trs_FreeModel(game->platformModel);
+    trs_FreeModel(game->islandModel);
     SDL_DestroyTexture(game->compassTex);
     SDL_DestroyTexture(game->hintTex);
 }
 
 // Returns false if the game should quit
 bool gameUpdate(GameState *game) {
-    levelUpdate(game);
+    if (game->state == GAME_ROOM_GAME) {
+        if (!levelUpdate(game)) {
+            menuStart(game, &game->menu);
+            game->state = GAME_ROOM_MENU;
+        }
+    } else if (game->state == GAME_ROOM_MENU) {
+        if (!menuUpdate(game, &game->menu)) {
+            levelCreate(game);
+            game->state = GAME_ROOM_GAME;
+        }
+    }
 
     return true;
 }
 
 void gameDraw(GameState *game) {
-    levelDraw(game);
+    if (game->state == GAME_ROOM_GAME) {
+        levelDraw(game);
+    } else if (game->state == GAME_ROOM_MENU) {
+        menuDraw(game, &game->menu);
+    }
 }
 
 void gameUI(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
-    levelDrawUI(game);
+    if (game->state == GAME_ROOM_GAME) {
+        levelDrawUI(game);
+    } else if (game->state == GAME_ROOM_MENU) {
+        menuDrawUI(game, &game->menu);
+    }
 
     // Debug
     trs_DrawFont(game->font, 1, 0, "FPS: %0.2f\nTriangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", game->fps, trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
-
-    // Hint
-    SDL_RenderCopy(game->renderer, game->hintTex, NULL, &((SDL_Rect){.x = 0, .y = 205, .w = 81, .h = 19}));
-
-    // Draw orientation
-    const float startX = 230 + 13;
-    const float startY = 13;
-    SDL_RenderCopy(game->renderer, game->compassTex, NULL, &((SDL_Rect){.x = startX - 13, .y = startY - 13, .w = 25, .h = 25}));
-
-    // Horizontal orientation
-    const float rotation = camera->rotation - ((3 * GLM_PI) / 4);
-    const float horiX = (cosf(rotation) * 10);
-    const float horiY = (sinf(rotation) * 10);
-    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
-    SDL_RenderDrawLine(game->renderer, startX, startY, startX + horiX, startY + horiY);
-
-    // Vertical orientation
-    const float verticalPercent = (camera->rotationZ / GLM_PI);
-    SDL_SetRenderDrawColor(game->renderer, 0, 0, 255, 255);
-    SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY - (verticalPercent * 20));
-    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
-    SDL_RenderDrawPoint(game->renderer, startX, startY);
 }

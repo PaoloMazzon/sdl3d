@@ -142,7 +142,7 @@ void levelDestroy(GameState *game) {
 
 }
 
-void levelUpdate(GameState *game) {
+bool levelUpdate(GameState *game) {
     cameraControls(game);
     playerUpdate(game, &game->player);
 
@@ -150,6 +150,7 @@ void levelUpdate(GameState *game) {
         if (game->level.walls[i].active)
             updateWall(game, &game->level, &game->level.walls[i]);
     }
+    return true;
 }
 
 void levelDraw(GameState *game) {
@@ -176,9 +177,33 @@ void levelDraw(GameState *game) {
 }
 
 void levelDrawUI(GameState *game) {
+    trs_Camera *camera = trs_GetCamera();
     char buffer[100];
     const float time = game->time - game->level.startTime;
     snprintf(buffer, 100, "=%02d:%02d:%03d", (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
     const float len = strlen(buffer);
     trs_DrawFont(game->font, 256 - (len * 7), 224 - 9, "%s", buffer);
+
+    
+    // Hint
+    SDL_RenderCopy(game->renderer, game->hintTex, NULL, &((SDL_Rect){.x = 0, .y = 205, .w = 81, .h = 19}));
+
+    // Draw orientation
+    const float startX = 230 + 13;
+    const float startY = 13;
+    SDL_RenderCopy(game->renderer, game->compassTex, NULL, &((SDL_Rect){.x = startX - 13, .y = startY - 13, .w = 25, .h = 25}));
+
+    // Horizontal orientation
+    const float rotation = camera->rotation - ((3 * GLM_PI) / 4);
+    const float horiX = (cosf(rotation) * 10);
+    const float horiY = (sinf(rotation) * 10);
+    SDL_SetRenderDrawColor(game->renderer, 255, 0, 0, 255);
+    SDL_RenderDrawLine(game->renderer, startX, startY, startX + horiX, startY + horiY);
+
+    // Vertical orientation
+    const float verticalPercent = (camera->rotationZ / GLM_PI);
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 255, 255);
+    SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY - (verticalPercent * 20));
+    SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
+    SDL_RenderDrawPoint(game->renderer, startX, startY);
 }

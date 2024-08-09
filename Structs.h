@@ -4,6 +4,11 @@
 #include "Software3D.h"
 #pragma once
 
+typedef enum {
+    GAME_ROOM_MENU = 0,
+    GAME_ROOM_GAME = 1,
+} GameRoom;
+
 typedef struct Player_t {
     float x, y, z;
     float velocityX, velocityY, velocityZ;
@@ -39,6 +44,10 @@ typedef struct Level_t {
     double startTime;
 } Level;
 
+typedef struct Menu_t {
+    int cursor;
+} Menu;
+
 typedef struct GameState_t {
     // Engine
     SDL_Renderer *renderer;
@@ -51,13 +60,17 @@ typedef struct GameState_t {
     // Game stuff
     Player player;
     Level level;
+    Menu menu;
+    GameRoom state;
 
     // Assets
     trs_Model testModel;
     SDL_Texture *hintTex;
     trs_Font font;
+    trs_Font menuFont;
     SDL_Texture *compassTex;
     trs_Model playerModel;
     trs_Model groundPlane;
     trs_Model platformModel;
+    trs_Model islandModel;
 } GameState;

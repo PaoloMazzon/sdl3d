@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
         -1,
         SDL_RENDERER_TARGETTEXTURE | SDL_RENDERER_PRESENTVSYNC
     );
-    SDL_SetRelativeMouseMode(true);
     srand(time(NULL));
 
     // Timekeeping
