@@ -59,8 +59,38 @@ void addWall(Level *level, Wall *wall) {
     // Copy the wall
     level->walls[spot] = *wall;
     level->walls[spot].active = true;
+    level->walls[spot].startMove[0] = level->walls[spot].x;
+    level->walls[spot].startMove[1] = level->walls[spot].y;
+    level->walls[spot].startMove[2] = level->walls[spot].z;
     if (level->walls[spot].hitbox == NULL)
         level->walls[spot].hitbox = trs_GetModelHitbox(level->walls[spot].model);
+}
+
+void updateWall(GameState *game, Level *level, Wall *wall) {
+    wall->time += game->delta * (1 / wall->moveFactor);
+    if (wall->time < 1) {    
+        wall->velocity[0] = (wall->endMove[0] - wall->startMove[0]) / (wall->moveFactor);
+        wall->velocity[1] = (wall->endMove[1] - wall->startMove[1]) / (wall->moveFactor);
+        wall->velocity[2] = (wall->endMove[2] - wall->startMove[2]) / (wall->moveFactor);
+    } else {
+        wall->velocity[0] = 0;
+        wall->velocity[1] = 0;
+        wall->velocity[2] = 0;
+    }
+    wall->x += wall->velocity[0] * game->delta;
+    wall->y += wall->velocity[1] * game->delta;
+    wall->z += wall->velocity[2] * game->delta;
+
+    if (wall->time > 1 + wall->stayTime) {
+        vec3 vec = {wall->startMove[0], wall->startMove[1], wall->startMove[2]};
+        wall->startMove[0] = wall->endMove[0];
+        wall->startMove[1] = wall->endMove[1];
+        wall->startMove[2] = wall->endMove[2];
+        wall->endMove[0] = vec[0];
+        wall->endMove[1] = vec[1];
+        wall->endMove[2] = vec[2];
+        wall->time = 0;
+    }
 }
 
 //******************************** Level ********************************//
@@ -69,7 +99,7 @@ void levelCreate(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
     camera->eyes[0] = (game->player.x - 8);
     camera->eyes[1] = (game->player.y - 8);
-    camera->eyes[2] = (game->player.z + 5000);
+    camera->eyes[2] = (game->player.z + 8);
     camera->rotation = atan2f(camera->eyes[1] - game->player.y, camera->eyes[0] - game->player.x) + GLM_PI;
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 
@@ -101,7 +131,10 @@ void levelCreate(GameState *game) {
         .model = game->platformModel,
         .x = 0,
         .y = -3,
-        .z = 6
+        .z = 6,
+        .endMove = {4, -3, 6},
+        .stayTime = 1,
+        .moveFactor = 2
     }));
 }
 
@@ -112,6 +145,11 @@ void levelDestroy(GameState *game) {
 void levelUpdate(GameState *game) {
     cameraControls(game);
     playerUpdate(game, &game->player);
+
+    for (int i = 0; i < game->level.wallCount; i++) {
+        if (game->level.walls[i].active)
+            updateWall(game, &game->level, &game->level.walls[i]);
+    }
 }
 
 void levelDraw(GameState *game) {
@@ -142,5 +180,5 @@ void levelDrawUI(GameState *game) {
     const float time = game->time - game->level.startTime;
     snprintf(buffer, 100, "=%02d:%02d:%03d", (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
     const float len = strlen(buffer);
-    trs_DrawFont(game->font, 255 - (len * 7), 224 - 9, "%s", buffer);
+    trs_DrawFont(game->font, 256 - (len * 7), 224 - 9, "%s", buffer);
 }

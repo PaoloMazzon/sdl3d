@@ -18,11 +18,18 @@ typedef struct Player_t {
 } Player;
 
 typedef struct Wall_t {
+    bool active;
     float x, y, z;
-    vec3 velocity; // as x,y,z components
+    vec3 startMove;
+    vec3 endMove;
     trs_Hitbox hitbox;
     trs_Model model;
-    bool active;
+    
+    // For moving platforms
+    vec3 velocity; // as x,y,z components
+    float time;
+    float moveFactor; // time is multiplied by this
+    float stayTime; // time this wall stays at both ends
 } Wall;
 
 typedef struct Level_t {

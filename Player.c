@@ -29,12 +29,15 @@ void playerUpdate(GameState *game, Player *player) {
     const float jumpSpeed = 2.3;
     const float jumpDuration = 0.3; // in seconds
     const float squishDuration = 0.3;
+    game->level.mostRecentWall = NULL;
     const bool onGround = playerOnGround(game, player);
+    const Wall *wallBelow = game->level.mostRecentWall;
 
     // Get player input
     player->velocityX = player->velocityY = 0;
-    player->velocityX = (float)game->keyboard[SDL_SCANCODE_RIGHT] - (float)game->keyboard[SDL_SCANCODE_LEFT];
-    player->velocityY = (float)game->keyboard[SDL_SCANCODE_UP] - (float)game->keyboard[SDL_SCANCODE_DOWN];
+
+    player->velocityX += (float)game->keyboard[SDL_SCANCODE_RIGHT] - (float)game->keyboard[SDL_SCANCODE_LEFT];
+    player->velocityY += (float)game->keyboard[SDL_SCANCODE_UP] - (float)game->keyboard[SDL_SCANCODE_DOWN];
     const bool jump = onGround && game->keyboard[SDL_SCANCODE_Z] && !game->keyboardPrevious[SDL_SCANCODE_Z];
 
     // Move relative to the camera's placement
@@ -44,13 +47,17 @@ void playerUpdate(GameState *game, Player *player) {
     } else {
         player->speed = clamp(player->speed - friction, 0, 999);
     }
-    const float xComponent = cos(player->direction);
-    const float yComponent = sin(player->direction);
+    float xComponent = cos(player->direction) * player->speed;
+    float yComponent = sin(player->direction) * player->speed;
+    if (onGround && wallBelow != NULL) {
+        xComponent += wallBelow->velocity[0] * game->delta;
+        yComponent += wallBelow->velocity[1] * game->delta;
+    }
 
-    if (!touchingWall(&game->level, player->hitbox, player->x + (xComponent * player->speed), player->y, player->z))
-        player->x += xComponent * player->speed;
-    if (!touchingWall(&game->level, player->hitbox, player->x, player->y + (yComponent * player->speed), player->z))
-        player->y += yComponent * player->speed;
+    if (!touchingWall(&game->level, player->hitbox, player->x + (xComponent), player->y, player->z))
+        player->x += xComponent;
+    if (!touchingWall(&game->level, player->hitbox, player->x, player->y + (yComponent), player->z))
+        player->y += yComponent;
 
     // Jump & gravity
     if (jump)
@@ -89,6 +96,13 @@ void playerUpdate(GameState *game, Player *player) {
         player->velocityZ = 0;
 
     player->onGroundLastFrame = onGround;
+
+    // Move away from a wall thats moving into the player
+    if (touchingWall(&game->level, player->hitbox, player->x, player->y, player->z)) {
+        player->x += game->level.mostRecentWall->velocity[0] * game->delta;
+        player->y += game->level.mostRecentWall->velocity[1] * game->delta;
+        player->z += game->level.mostRecentWall->velocity[2] * game->delta;
+    }
 }
 
 static double normalizeAngle(double angle) {
