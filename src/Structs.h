@@ -4,6 +4,8 @@
 #include "Software3D.h"
 #pragma once
 
+#define MENU_FADE_TIME 1
+
 typedef enum {
     GAME_ROOM_MENU = 0,
     GAME_ROOM_GAME = 1,
@@ -46,6 +48,8 @@ typedef struct Level_t {
 
 typedef struct Menu_t {
     int cursor;
+    float timer;
+    bool nextRoom;
 } Menu;
 
 typedef struct GameState_t {
