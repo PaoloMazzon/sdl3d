@@ -465,7 +465,7 @@ void trs_Init(SDL_Renderer *renderer, SDL_Window *window, float logicalWidth, fl
     glm_perspective(glm_rad(45.0f), logicalWidth / logicalHeight, 0.1, 100, gGameState->perspective);
 
     // Load uv texture
-    gGameState->uvtexture = trs_LoadPNG("textures.png");
+    gGameState->uvtexture = trs_LoadPNG("res/textures.png");
 }
 
 void trs_End() {

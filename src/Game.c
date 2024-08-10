@@ -9,13 +9,13 @@
 
 void gameStart(GameState *game) {
     // Basic game assets
-    game->font = trs_LoadFont("font.png", 7, 8);
-    game->menuFont = trs_LoadFont("font2.png", 16, 16);
-    game->compassTex = trs_LoadPNG("compass.png");
-    game->playerModel = trs_LoadModel("player.obj");
-    game->platformModel = trs_LoadModel("platform.obj");
-    game->islandModel = trs_LoadModel("island.obj");
-    game->hintTex = trs_LoadPNG("hint.png");
+    game->font = trs_LoadFont("res/font.png", 7, 8);
+    game->menuFont = trs_LoadFont("res/font2.png", 16, 16);
+    game->compassTex = trs_LoadPNG("res/compass.png");
+    game->playerModel = trs_LoadModel("res/player.obj");
+    game->platformModel = trs_LoadModel("res/platform.obj");
+    game->islandModel = trs_LoadModel("res/island.obj");
+    game->hintTex = trs_LoadPNG("res/hint.png");
 
     // Ground plane
     const float groundSize = 2;
