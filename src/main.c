@@ -24,11 +24,14 @@ int main(int argc, char *argv[]) {
     );
     srand(time(NULL));
 
+    const double FRAMECAP = 1.0f / 144.0f;
+
     // Timekeeping
     Uint64 startTicks = SDL_GetPerformanceCounter();
     Uint64 startOfSecond = SDL_GetPerformanceCounter();
     double framerate = 0;
     double frameCount = 0;
+    double startOfFrame = 0;
 
     // Initialize game
     int num;
@@ -45,6 +48,9 @@ int main(int argc, char *argv[]) {
     bool running = true;
     SDL_Event event;
     while (running) {
+        // Timekeeping
+        startOfFrame = SDL_GetPerformanceCounter();
+
         // Event loop
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT || event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
@@ -88,7 +94,22 @@ int main(int argc, char *argv[]) {
         // End frame
         SDL_RenderPresent(renderer);
 
+        // Fullscreen
+        if (game.keyboard[SDL_SCANCODE_LALT] && game.keyboard[SDL_SCANCODE_RETURN] && !game.keyboardPrevious[SDL_SCANCODE_RETURN]) {
+            bool fullscreen = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
+            SDL_SetWindowFullscreen(window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
+        }
+        
+        // Copy previous frame
+        memcpy(game.keyboardPrevious, game.keyboard, num);
+
         // Timekeeping
+        double between = (float)(SDL_GetPerformanceCounter() - startOfFrame) / (double)(SDL_GetPerformanceFrequency());
+        while (between < FRAMECAP) {
+            between = (float)(SDL_GetPerformanceCounter() - startOfFrame) / (double)(SDL_GetPerformanceFrequency());
+        }
+
+        // FPS counting
         frameCount += 1;
         if (SDL_GetPerformanceCounter() - startOfSecond >= SDL_GetPerformanceFrequency()) {
             framerate = frameCount / ((double)(SDL_GetPerformanceCounter() - startOfSecond) / (double)SDL_GetPerformanceFrequency());
@@ -96,15 +117,6 @@ int main(int argc, char *argv[]) {
             startOfSecond = SDL_GetPerformanceCounter();
             game.fps = framerate;
         }
-
-        // Fullscreen
-        if (game.keyboard[SDL_SCANCODE_LALT] && game.keyboard[SDL_SCANCODE_RETURN] && !game.keyboardPrevious[SDL_SCANCODE_RETURN]) {
-            bool fullscreen = (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0;
-            SDL_SetWindowFullscreen(window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
-        }
-
-        // Copy previous frame
-        memcpy(game.keyboardPrevious, game.keyboard, num);
     }
 
     // Cleanup

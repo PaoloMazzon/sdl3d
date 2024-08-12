@@ -22,11 +22,11 @@ bool playerOnGround(GameState *game, Player *player) {
 void playerUpdate(GameState *game, Player *player) {
     trs_Camera *cam = trs_GetCamera();
     const float speed = 0.3 * game->delta;
-    const float gravity = 0.8 * game->delta;
-    const float terminalVelocity = -0.5;
+    const float gravity = 9.8 * 9.8 * game->delta;
+    const float terminalVelocity = -30;
     const float topSpeed = 8;
     const float friction = 0.8 * game->delta;
-    const float jumpSpeed = 2.3;
+    const float jumpSpeed = 35;
     const float jumpDuration = 0.3; // in seconds
     const float squishDuration = 0.3;
     game->level.mostRecentWall = NULL;
@@ -35,7 +35,6 @@ void playerUpdate(GameState *game, Player *player) {
 
     // Get player input
     player->velocityX = player->velocityY = 0;
-
     player->velocityX += (float)game->keyboard[SDL_SCANCODE_RIGHT] - (float)game->keyboard[SDL_SCANCODE_LEFT];
     player->velocityY += (float)game->keyboard[SDL_SCANCODE_UP] - (float)game->keyboard[SDL_SCANCODE_DOWN];
     const bool jump = onGround && game->keyboard[SDL_SCANCODE_Z] && !game->keyboardPrevious[SDL_SCANCODE_Z];
@@ -49,22 +48,36 @@ void playerUpdate(GameState *game, Player *player) {
     }
     float xComponent = cos(player->direction) * player->speed;
     float yComponent = sin(player->direction) * player->speed;
+
+    // Move with the wall the player is standing on
     if (onGround && wallBelow != NULL) {
         xComponent += wallBelow->velocity[0] * game->delta;
         yComponent += wallBelow->velocity[1] * game->delta;
+        player->z = wallBelow->position[2] + (wallBelow->hitbox->box[1][2]) + 0.05;
     }
 
+    // Add velocity to position assuming there is no wall in the way
     if (!touchingWall(&game->level, player->hitbox, player->x + (xComponent), player->y, player->z))
         player->x += xComponent;
     if (!touchingWall(&game->level, player->hitbox, player->x, player->y + (yComponent), player->z))
         player->y += yComponent;
 
+
+    // Squash animation
+    if (onGround && !player->onGroundLastFrame && player->velocityZ < -8) {
+        player->squishTimer = squishDuration;
+    }
+
+    if (onGround)
+        player->velocityZ = 0;
+
     // Jump & gravity
-    if (jump)
+    if (jump) {
         player->jumpTimer = jumpDuration;
+        player->velocityZ = jumpSpeed;
+    }
     if (player->jumpTimer > 0) {
-        player->jumpTimer = clamp(player->jumpTimer - game->delta, 0, 999);
-        player->velocityZ += jumpSpeed * (player->jumpTimer / jumpDuration) * game->delta;
+        player->jumpTimer -= game->delta;
         const float x = (player->jumpTimer / jumpDuration);
         player->zscale = 1 + ((-powf((2 * x) - 1, 2) + 1) * 0.3);
     } else {
@@ -74,26 +87,20 @@ void playerUpdate(GameState *game, Player *player) {
         player->velocityZ = clamp(player->velocityZ - gravity, terminalVelocity, 9999999);
 
     // Collide with walls below
-    if (!touchingWall(&game->level, player->hitbox, player->x, player->y, player->z + player->velocityZ)) {
-        player->z = clamp(player->z + (player->velocityZ), 0, 999);
+    if (!touchingWall(&game->level, player->hitbox, player->x, player->y, player->z + (player->velocityZ * game->delta))) {
+        player->z = clamp(player->z + (player->velocityZ * game->delta), 0, 999);
     } else {
         // Sit neatly on the wall below
-        if (game->level.mostRecentWall->z + game->level.mostRecentWall->hitbox->box[1][2] < player->z)
-            player->z = game->level.mostRecentWall->z + game->level.mostRecentWall->hitbox->box[1][2] + 0.1;
+        if (game->level.mostRecentWall->position[2] + game->level.mostRecentWall->hitbox->box[1][2] < player->z)
+            player->z = game->level.mostRecentWall->position[2] + game->level.mostRecentWall->hitbox->box[1][2] + 0.1;
     }
 
-    // Squash animation
-    if (onGround && !player->onGroundLastFrame) {
-        player->squishTimer = squishDuration;
-    }
+    // Squash animation 2
     if (player->squishTimer > 0) {
         const float percent = (player->squishTimer / squishDuration);
         player->squishTimer -= game->delta;
         player->zscale = 1 - ((-powf((2 * percent) - 1, 2) + 1) * 0.6);
     }
-
-    if (onGround)
-        player->velocityZ = 0;
 
     player->onGroundLastFrame = onGround;
 

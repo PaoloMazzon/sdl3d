@@ -26,7 +26,7 @@ typedef struct Player_t {
 
 typedef struct Wall_t {
     bool active;
-    float x, y, z;
+    vec3 position;
     vec3 startMove;
     vec3 endMove;
     trs_Hitbox hitbox;
@@ -38,6 +38,17 @@ typedef struct Wall_t {
     float moveFactor; // time is multiplied by this
     float stayTime; // time this wall stays at both ends
 } Wall;
+
+typedef struct Checkpoint_t {
+    vec3 position;
+} Checkpoint;
+
+typedef struct Chunk_t {
+    Wall *walls;
+    int wallCount;
+    Checkpoint *checkpoints;
+    int checkpointCount;
+} Chunk;
 
 typedef struct Level_t {
     Wall *walls; // array of walls in the game world

@@ -32,7 +32,7 @@ bool touchingWall(Level *level, trs_Hitbox hitbox, float x, float y, float z) {
         if (level->walls[i].active == false)
             continue;
         Wall *wall = &level->walls[i];
-        if (trs_Collision(hitbox, x, y, z, wall->hitbox, wall->x, wall->y, wall->z)) {
+        if (trs_Collision(hitbox, x, y, z, wall->hitbox, wall->position[0], wall->position[1], wall->position[2])) {
             level->mostRecentWall = &level->walls[i];
             return true;
         }
@@ -59,9 +59,9 @@ void addWall(Level *level, Wall *wall) {
     // Copy the wall
     level->walls[spot] = *wall;
     level->walls[spot].active = true;
-    level->walls[spot].startMove[0] = level->walls[spot].x;
-    level->walls[spot].startMove[1] = level->walls[spot].y;
-    level->walls[spot].startMove[2] = level->walls[spot].z;
+    level->walls[spot].startMove[0] = level->walls[spot].position[0];
+    level->walls[spot].startMove[1] = level->walls[spot].position[1];
+    level->walls[spot].startMove[2] = level->walls[spot].position[2];
     if (level->walls[spot].hitbox == NULL)
         level->walls[spot].hitbox = trs_GetModelHitbox(level->walls[spot].model);
 }
@@ -77,9 +77,10 @@ void updateWall(GameState *game, Level *level, Wall *wall) {
         wall->velocity[1] = 0;
         wall->velocity[2] = 0;
     }
-    wall->x += wall->velocity[0] * game->delta;
-    wall->y += wall->velocity[1] * game->delta;
-    wall->z += wall->velocity[2] * game->delta;
+
+    wall->position[0] += wall->velocity[0] * game->delta;
+    wall->position[1] += wall->velocity[1] * game->delta;
+    wall->position[2] += wall->velocity[2] * game->delta;
 
     if (wall->time > 1 + wall->stayTime) {
         vec3 vec = {wall->startMove[0], wall->startMove[1], wall->startMove[2]};
@@ -111,28 +112,27 @@ void levelCreate(GameState *game) {
     game->level.wallCount = 0;
     addWall(&game->level, &((Wall){
         .model = game->platformModel,
-        .x = 3,
-        .y = 0,
-        .z = 0
+        .position = {3, 0, 0}
     }));
     addWall(&game->level, &((Wall){
         .model = game->platformModel,
-        .x = 0,
-        .y = 3,
-        .z = 2
+        .position = {0, 3, 2}
     }));
     addWall(&game->level, &((Wall){
         .model = game->platformModel,
-        .x = -3,
-        .y = 0,
-        .z = 4
+        .position = {-3, 0, 4}
     }));
     addWall(&game->level, &((Wall){
         .model = game->platformModel,
-        .x = 0,
-        .y = -3,
-        .z = 6,
+        .position = {0, -3, 6},
         .endMove = {4, -3, 6},
+        .stayTime = 1,
+        .moveFactor = 2
+    }));
+    addWall(&game->level, &((Wall){
+        .model = game->platformModel,
+        .position = {6, 6, 0},
+        .endMove = {6, 6, 6},
         .stayTime = 1,
         .moveFactor = 2
     }));
@@ -170,7 +170,7 @@ void levelDraw(GameState *game) {
     for (int i = 0; i < game->level.wallCount; i++) {
         if (game->level.walls[i].active == false)
             continue;
-        trs_DrawModelExt(game->level.walls[i].model, game->level.walls[i].x, game->level.walls[i].y, game->level.walls[i].z, 1, 1, 1, 0, 0, 0);
+        trs_DrawModelExt(game->level.walls[i].model, game->level.walls[i].position[0], game->level.walls[i].position[1], game->level.walls[i].position[2], 1, 1, 1, 0, 0, 0);
     }
     
     playerDraw(game, &game->player);
@@ -183,6 +183,7 @@ void levelDrawUI(GameState *game) {
     snprintf(buffer, 100, "=%02d:%02d:%03d", (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
     const float len = strlen(buffer);
     trs_DrawFont(game->font, 256 - (len * 7), 224 - 9, "%s", buffer);
+    trs_DrawFont(game->font, 1, 8 * 3, "Z velocity: %0.2f", game->player.velocityZ);
 
     
     // Hint

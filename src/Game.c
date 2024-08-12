@@ -105,5 +105,5 @@ void gameUI(GameState *game) {
     }
 
     // Debug
-    trs_DrawFont(game->font, 1, 0, "FPS: %0.2f\nTriangles: %i\nx: %0.2f\ny: %0.2f\nz: %0.2f", game->fps, trs_GetTriangleCount(), camera->eyes[0], camera->eyes[1], camera->eyes[2]);
+    trs_DrawFont(game->font, 1, 0, "FPS: %0.2f\nTriangles: %i", game->fps, trs_GetTriangleCount());
 }
