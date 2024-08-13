@@ -183,7 +183,7 @@ void levelDrawUI(GameState *game) {
     snprintf(buffer, 100, "=%02d:%02d:%03d", (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
     const float len = strlen(buffer);
     trs_DrawFont(game->font, 256 - (len * 7), 224 - 9, "%s", buffer);
-    trs_DrawFont(game->font, 1, 8 * 3, "Z velocity: %0.2f", game->player.velocityZ);
+    trs_DrawFont(game->font, 1, 8 * 2, "Player: %0.0f,%0.0f,%0.0f", game->player.x, game->player.y, game->player.z);
 
     
     // Hint

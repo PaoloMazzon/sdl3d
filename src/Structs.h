@@ -5,11 +5,17 @@
 #pragma once
 
 #define MENU_FADE_TIME 1
+#define CHECKPOINT_COUNT 1
 
 typedef enum {
     GAME_ROOM_MENU = 0,
     GAME_ROOM_GAME = 1,
 } GameRoom;
+
+typedef struct Save_t {
+    float checkpointBestTimes[CHECKPOINT_COUNT];
+    float bestTime;
+} Save;
 
 typedef struct Player_t {
     float x, y, z;
@@ -41,6 +47,7 @@ typedef struct Wall_t {
 
 typedef struct Checkpoint_t {
     vec3 position;
+    int id;
 } Checkpoint;
 
 typedef struct Chunk_t {
@@ -77,6 +84,7 @@ typedef struct GameState_t {
     Level level;
     Menu menu;
     GameRoom state;
+    Save save;
 
     // Assets
     trs_Model testModel;
@@ -88,4 +96,5 @@ typedef struct GameState_t {
     trs_Model groundPlane;
     trs_Model platformModel;
     trs_Model islandModel;
+    trs_Model flagModel;
 } GameState;
