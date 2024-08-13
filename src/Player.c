@@ -16,7 +16,7 @@ void playerDestroy(GameState *game, Player *player) {
 }
 
 bool playerOnGround(GameState *game, Player *player) {
-    return player->z <= 0 || touchingWall(&game->level, player->hitbox, player->x, player->y, player->z - 0.1);
+    return player->z <= 0 || touchingWall(game, &game->level, player->hitbox, player->x, player->y, player->z - 0.1);
 }
 
 void playerUpdate(GameState *game, Player *player) {
@@ -57,9 +57,9 @@ void playerUpdate(GameState *game, Player *player) {
     }
 
     // Add velocity to position assuming there is no wall in the way
-    if (!touchingWall(&game->level, player->hitbox, player->x + (xComponent), player->y, player->z))
+    if (!touchingWall(game, &game->level, player->hitbox, player->x + (xComponent), player->y, player->z))
         player->x += xComponent;
-    if (!touchingWall(&game->level, player->hitbox, player->x, player->y + (yComponent), player->z))
+    if (!touchingWall(game, &game->level, player->hitbox, player->x, player->y + (yComponent), player->z))
         player->y += yComponent;
 
 
@@ -87,7 +87,7 @@ void playerUpdate(GameState *game, Player *player) {
         player->velocityZ = clamp(player->velocityZ - gravity, terminalVelocity, 9999999);
 
     // Collide with walls below
-    if (!touchingWall(&game->level, player->hitbox, player->x, player->y, player->z + (player->velocityZ * game->delta))) {
+    if (!touchingWall(game, &game->level, player->hitbox, player->x, player->y, player->z + (player->velocityZ * game->delta))) {
         player->z = clamp(player->z + (player->velocityZ * game->delta), 0, 999);
     } else {
         // Sit neatly on the wall below
@@ -105,7 +105,7 @@ void playerUpdate(GameState *game, Player *player) {
     player->onGroundLastFrame = onGround;
 
     // Move away from a wall thats moving into the player
-    if (touchingWall(&game->level, player->hitbox, player->x, player->y, player->z)) {
+    if (touchingWall(game, &game->level, player->hitbox, player->x, player->y, player->z)) {
         player->x += game->level.mostRecentWall->velocity[0] * game->delta;
         player->y += game->level.mostRecentWall->velocity[1] * game->delta;
         player->z += game->level.mostRecentWall->velocity[2] * game->delta;

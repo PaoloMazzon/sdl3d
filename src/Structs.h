@@ -60,8 +60,6 @@ typedef struct Chunk_t {
 typedef struct Level_t {
     Chunk *chunks;
     int chunkCount; // Number of chunks
-    Wall *walls;
-    int wallCount;
     Wall *mostRecentWall; // whatever wall was collided with most recently
     double startTime;
 } Level;

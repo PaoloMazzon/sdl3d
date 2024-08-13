@@ -5,22 +5,27 @@
 // Chunks are a CHUNK_WIDTH-wide block of game-world assets, every chunk is
 // loaded at once and where the player is determines which chunks are accessed
 // and checked against for drawing and collisions and the like each frame.
+// The chunk at player position +/- 1 chunk are handled each frame.
 const float CHUNK_WIDTH = 15.0f;
 
 // Returns the index of the chunk this coordinate would belong to
 static int getChunkIndex(float x, float y) {
+    //x = floorf(x);
+    //y = floorf(y);
+
     // Chunks only exist along the line y=-x, and they only go out in the direction x<0 y>0
     if (y < x) return 0;
     
     // Casts the coordinate to the line y=-x and find the distance on that line from the origin
     const float distance = sqrtf((powf(x, 2) + powf(y, 2)) - powf((-x - y) / (GLM_SQRT2), 2));
-    return (int)floorf(distance / CHUNK_WIDTH);
+    const int out = (int)floorf(distance / CHUNK_WIDTH);
+    return out >= 0 ? out : 0;
 }
 
 // Returns the chunk at a given index, creating it if it doesn't exist
 static Chunk *getChunkAtIndex(Level *level, int index) {
     if (index < 0) return NULL;
-    if (level->chunkCount < index) {
+    if (level->chunkCount <= index) {
         // Allocate new chunks up to this point
         int oldSize = level->chunkCount;
         level->chunks = realloc(level->chunks, sizeof(struct Chunk_t) * (index + 1));
@@ -41,6 +46,73 @@ static Chunk *getChunkAtIndex(Level *level, int index) {
 static Chunk *getChunkAtPosition(Level *level, float x, float y) {
     const int index = getChunkIndex(x, y);
     return getChunkAtIndex(level, index);
+}
+
+// Iterator for walls
+typedef struct WallIterator_t {
+    int chunks[3];
+    int chunkCount;
+    int chunkIndex;
+    int wallIndex;
+} WallIterator;
+
+static Wall *getWallsNext(Level *level, WallIterator *iter) {
+    for (; iter->chunkIndex < iter->chunkCount; iter->chunkIndex++) {
+        Chunk *chunk = &level->chunks[iter->chunks[iter->chunkIndex]];
+        if (iter->wallIndex < chunk->wallCount) {
+            iter->wallIndex++;
+            return &chunk->walls[iter->wallIndex - 1];
+        }
+        iter->wallIndex = 0;
+    }
+    return NULL;
+}
+
+static Wall *getWallsStart(GameState *game, Level *level, WallIterator *iter) {
+    // Get the chunk on the player
+    const int chunk = getChunkIndex(game->player.x, game->player.y);
+    iter->chunkCount = 0;
+    iter->wallIndex = 0;
+    iter->chunkIndex = 0;
+
+    // Count the chunks in range of the player
+    if (chunk < level->chunkCount)
+        iter->chunks[iter->chunkCount++] = chunk;
+    if (chunk + 1 < level->chunkCount)
+        iter->chunks[iter->chunkCount++] = chunk + 1;
+    if (chunk != 0 && level->chunkCount > 1)
+        iter->chunks[iter->chunkCount++] = chunk - 1;
+    return getWallsNext(level, iter);
+}
+
+// Adds a wall to the proper chunk
+void addWall(Level *level, Wall *wall) {
+    // Get the chunk associated with this position
+    Chunk *chunk = getChunkAtPosition(level, wall->position[0], wall->position[1]);
+
+    // Search for an open wall slot first
+    int spot = -1;
+    for (int i = 0; i < chunk->wallCount && spot == -1; i++)
+        if (chunk->walls[i].active == false)
+            spot = i;
+    
+    // Extend the list
+    if (spot == -1) {
+        chunk->walls = realloc(chunk->walls, (chunk->wallCount + 10) * sizeof(struct Wall_t));
+        for (int i = chunk->wallCount; i < chunk->wallCount + 10; i++)
+            chunk->walls[i].active = false;
+        spot = chunk->wallCount;
+        chunk->wallCount += 10;
+    }
+
+    // Copy the wall
+    chunk->walls[spot] = *wall;
+    chunk->walls[spot].active = true;
+    chunk->walls[spot].startMove[0] = chunk->walls[spot].position[0];
+    chunk->walls[spot].startMove[1] = chunk->walls[spot].position[1];
+    chunk->walls[spot].startMove[2] = chunk->walls[spot].position[2];
+    if (chunk->walls[spot].hitbox == NULL)
+        chunk->walls[spot].hitbox = trs_GetModelHitbox(chunk->walls[spot].model);
 }
 
 //******************************** Helpers ********************************//
@@ -69,43 +141,20 @@ static void cameraControls(GameState *game) {
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 }
 
-bool touchingWall(Level *level, trs_Hitbox hitbox, float x, float y, float z) {
-    for (int i = 0; i < level->wallCount; i++) {
-        if (level->walls[i].active == false)
-            continue;
-        Wall *wall = &level->walls[i];
-        if (trs_Collision(hitbox, x, y, z, wall->hitbox, wall->position[0], wall->position[1], wall->position[2])) {
-            level->mostRecentWall = &level->walls[i];
-            return true;
+bool touchingWall(GameState *game, Level *level, trs_Hitbox hitbox, float x, float y, float z) {
+    WallIterator iter;
+    Wall *wall = getWallsStart(game, &game->level, &iter);
+    while (wall != NULL) {
+        if (wall->active) {
+            if (trs_Collision(hitbox, x, y, z, wall->hitbox, wall->position[0], wall->position[1], wall->position[2])) {
+                level->mostRecentWall = wall;
+                return true;
+            }
         }
+        wall = getWallsNext(&game->level, &iter);
     }
+
     return false;
-}
-
-void addWall(Level *level, Wall *wall) {
-    // Search for an open wall slot first
-    int spot = -1;
-    for (int i = 0; i < level->wallCount && spot == -1; i++)
-        if (level->walls[i].active == false)
-            spot = i;
-    
-    // Extend the list
-    if (spot == -1) {
-        level->walls = realloc(level->walls, (level->wallCount + 10) * sizeof(struct Wall_t));
-        for (int i = level->wallCount; i < level->wallCount + 10; i++)
-            level->walls[i].active = false;
-        spot = level->wallCount;
-        level->wallCount += 10;
-    }
-
-    // Copy the wall
-    level->walls[spot] = *wall;
-    level->walls[spot].active = true;
-    level->walls[spot].startMove[0] = level->walls[spot].position[0];
-    level->walls[spot].startMove[1] = level->walls[spot].position[1];
-    level->walls[spot].startMove[2] = level->walls[spot].position[2];
-    if (level->walls[spot].hitbox == NULL)
-        level->walls[spot].hitbox = trs_GetModelHitbox(level->walls[spot].model);
 }
 
 void updateWall(GameState *game, Level *level, Wall *wall) {
@@ -150,8 +199,6 @@ void levelCreate(GameState *game) {
     game->level.startTime = game->time;
 
     // Setup walls
-    game->level.walls = NULL;
-    game->level.wallCount = 0;
     addWall(&game->level, &((Wall){
         .model = game->platformModel,
         .position = {3, 0, 0}
@@ -178,6 +225,10 @@ void levelCreate(GameState *game) {
         .stayTime = 1,
         .moveFactor = 2
     }));
+    addWall(&game->level, &((Wall){
+        .model = game->platformModel,
+        .position = {-12, 12, 1}
+    }));
 }
 
 void levelDestroy(GameState *game) {
@@ -188,10 +239,17 @@ bool levelUpdate(GameState *game) {
     cameraControls(game);
     playerUpdate(game, &game->player);
 
-    for (int i = 0; i < game->level.wallCount; i++) {
-        if (game->level.walls[i].active)
-            updateWall(game, &game->level, &game->level.walls[i]);
+    // Update/draw walls in relavent chunks
+    WallIterator iter;
+    Wall *wall = getWallsStart(game, &game->level, &iter);
+    while (wall != NULL) {
+        if (wall->active) {
+            updateWall(game, &game->level, wall);
+            trs_DrawModelExt(wall->model, wall->position[0], wall->position[1], wall->position[2], 1, 1, 1, 0, 0, 0);
+        }
+        wall = getWallsNext(&game->level, &iter);
     }
+
     return true;
 }
 
@@ -207,13 +265,6 @@ void levelDraw(GameState *game) {
     trs_DrawModelExt(game->groundPlane, 4, -4, z, 1, 1, 1, 0, 0, 0);
     trs_DrawModelExt(game->groundPlane, 4, 0, z, 1, 1, 1, 0, 0, 0);
     trs_DrawModelExt(game->groundPlane, 4, 4, z, 1, 1, 1, 0, 0, 0);
-
-    // Draw walls
-    for (int i = 0; i < game->level.wallCount; i++) {
-        if (game->level.walls[i].active == false)
-            continue;
-        trs_DrawModelExt(game->level.walls[i].model, game->level.walls[i].position[0], game->level.walls[i].position[1], game->level.walls[i].position[2], 1, 1, 1, 0, 0, 0);
-    }
     
     playerDraw(game, &game->player);
 }
