@@ -1,6 +1,48 @@
 #include "Level.h"
 #include "Player.h"
 
+//******************************** Chunks ********************************//
+// Chunks are a CHUNK_WIDTH-wide block of game-world assets, every chunk is
+// loaded at once and where the player is determines which chunks are accessed
+// and checked against for drawing and collisions and the like each frame.
+const float CHUNK_WIDTH = 15.0f;
+
+// Returns the index of the chunk this coordinate would belong to
+static int getChunkIndex(float x, float y) {
+    // Chunks only exist along the line y=-x, and they only go out in the direction x<0 y>0
+    if (y < x) return 0;
+    
+    // Casts the coordinate to the line y=-x and find the distance on that line from the origin
+    const float distance = sqrtf((powf(x, 2) + powf(y, 2)) - powf((-x - y) / (GLM_SQRT2), 2));
+    return (int)floorf(distance / CHUNK_WIDTH);
+}
+
+// Returns the chunk at a given index, creating it if it doesn't exist
+static Chunk *getChunkAtIndex(Level *level, int index) {
+    if (index < 0) return NULL;
+    if (level->chunkCount < index) {
+        // Allocate new chunks up to this point
+        int oldSize = level->chunkCount;
+        level->chunks = realloc(level->chunks, sizeof(struct Chunk_t) * (index + 1));
+        level->chunkCount = index + 1;
+
+        // Zero all the chunks up to the new size
+        for (int i = oldSize; i < level->chunkCount; i++) {
+            level->chunks[i].wallCount = 0;
+            level->chunks[i].walls = NULL;
+            level->chunks[i].checkpointCount = 0;
+            level->chunks[i].checkpoints = NULL;
+        }
+    }
+    return &level->chunks[index];
+}
+
+// Returns a chunk at a given position, creating that chunk if it doesn't yet exist
+static Chunk *getChunkAtPosition(Level *level, float x, float y) {
+    const int index = getChunkIndex(x, y);
+    return getChunkAtIndex(level, index);
+}
+
 //******************************** Helpers ********************************//
 static void cameraControls(GameState *game) {
     trs_Camera *camera = trs_GetCamera();
