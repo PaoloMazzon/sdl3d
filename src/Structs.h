@@ -5,16 +5,23 @@
 #pragma once
 
 #define MENU_FADE_TIME 1
-#define CHECKPOINT_COUNT 1
 
 typedef enum {
     GAME_ROOM_MENU = 0,
     GAME_ROOM_GAME = 1,
 } GameRoom;
 
-typedef struct Save_t {
-    float checkpointBestTimes[CHECKPOINT_COUNT];
+// Score info for a given level file
+typedef struct SaveLevelInfo_t {
+    const char *levelName;
+    float *checkpointBestTimes;
+    int checkpointCount;
     float bestTime;
+} SaveLevelInfo;
+
+typedef struct Save_t {
+    SaveLevelInfo *saves;
+    int saveCount;
 } Save;
 
 typedef struct Player_t {

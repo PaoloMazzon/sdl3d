@@ -12,15 +12,7 @@ void gameSave(GameState *game) {
     FILE *f = fopen(SAVE_FILE, "wb");
 
     if (f) {
-        // The order is:
-        //  + 4 bytes for version
-        //  + 4 bytes for each checkpoint best time
-        //  + 4 bytes for best time
-        fwrite(&SAVE_VERSION, 4, 1, f);
-        for (int i = 0; i < CHECKPOINT_COUNT; i++) {
-            fwrite(&game->save.checkpointBestTimes[i], 4, 1, f);
-        }
-        fwrite(&game->save.bestTime, 4, 1, f);
+        // TODO: This
 
         fclose(f);
     }
@@ -29,16 +21,8 @@ void gameSave(GameState *game) {
 void gameLoad(GameState *game) {
     FILE *f = fopen(SAVE_FILE, "rb");
     if (f != NULL) {
-        // Read the save file version
-        uint32_t version;
-        fread(&version, 4, 1, f);
-        if (version == SAVE_VERSION) {
-            // Read in same order as save function
-            for (int i = 0; i < CHECKPOINT_COUNT; i++) {
-                fread(&game->save.checkpointBestTimes[i], 4, 1, f);
-            }
-            fread(&game->save.bestTime, 4, 1, f);
-        }
+        // TODO: This
+
         fclose(f);
     }
 }
@@ -148,4 +132,12 @@ void gameUI(GameState *game) {
 
     // Debug
     trs_DrawFont(game->font, 1, 0, "FPS: %0.2f\nTriangles: %i", game->fps, trs_GetTriangleCount());
+}
+
+SaveLevelInfo *gameSaveGetScores(GameState *game, const char *levelName) {
+    // TODO: This
+}
+
+bool gameSaveSetScores(GameState *game, const char *levelName, float *checkpointTimes, int checkpointCount, float time) {
+    // TODO: This
 }

@@ -14,7 +14,7 @@ void menuStart(GameState *game, Menu *menu) {
 
 bool menuUpdate(GameState *game, Menu *menu) {
     // DEBUG, SO I DONT HAVE TO SEE THE MENU
-    //return false;
+    return false;
     if (game->keyboard[SDL_SCANCODE_Z] && !menu->nextRoom) {
         menu->nextRoom = true;
         menu->timer = MENU_FADE_TIME;

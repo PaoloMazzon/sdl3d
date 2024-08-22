@@ -185,6 +185,11 @@ void updateWall(GameState *game, Level *level, Wall *wall) {
     }
 }
 
+// Loads a level from a csv
+void loadLevel(GameState *game, Level *level) {
+    // TODO: This
+}
+
 //******************************** Level ********************************//
 void levelCreate(GameState *game) {
     // Setup camera
@@ -232,7 +237,14 @@ void levelCreate(GameState *game) {
 }
 
 void levelDestroy(GameState *game) {
-
+    for (int i = 0; i < game->level.chunkCount; i++) {
+        free(game->level.chunks[i].checkpoints);
+        free(game->level.chunks[i].walls);
+    }
+    free(game->level.chunks);
+    game->level.chunkCount = 0;
+    game->level.chunks = NULL;
+    game->level.mostRecentWall = NULL;
 }
 
 bool levelUpdate(GameState *game) {
