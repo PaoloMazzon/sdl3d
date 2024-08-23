@@ -65,6 +65,7 @@ float random();
 trs_Camera *trs_GetCamera();
 int trs_GetTriangleCount();
 SDL_Texture *trs_LoadPNG(const char *filename); // shorthand for stb image
+uint8_t *trs_LoadFile(const char *filename, int *size);
 
 // Model loading/drawing
 trs_Model trs_CreateModel(trs_Vertex *vertices, int count); // the vertex list will be copied

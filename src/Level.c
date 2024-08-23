@@ -1,3 +1,5 @@
+#include "cJSON.h"
+#include "Software3D.h"
 #include "Level.h"
 #include "Player.h"
 
@@ -186,7 +188,7 @@ void updateWall(GameState *game, Level *level, Wall *wall) {
 }
 
 // Loads a level from a csv
-void loadLevel(GameState *game, Level *level) {
+void loadLevel(GameState *game, Level *level, const char *filename) {
     // TODO: This
 }
 

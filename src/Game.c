@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include "cJSON.h"
 #include "Software3D.h"
 #include "Game.h"
 #include "Level.h"
@@ -9,21 +10,18 @@ const char const *SAVE_FILE = "game.sav";
 const uint32_t SAVE_VERSION = 1;
 
 void gameSave(GameState *game) {
-    FILE *f = fopen(SAVE_FILE, "wb");
-
-    if (f) {
-        // TODO: This
-
-        fclose(f);
-    }
+    // TODO: This
 }
 
 void gameLoad(GameState *game) {
-    FILE *f = fopen(SAVE_FILE, "rb");
-    if (f != NULL) {
-        // TODO: This
+    int size;
+    uint8_t *file = trs_LoadFile("game.sav", &size);
+    if (file != NULL) {
+        file = realloc(file, size + 1);
+        file[size] = 0;
+        cJSON *json = cJSON_Parse(file);
 
-        fclose(f);
+        // TODO: This
     }
 }
 

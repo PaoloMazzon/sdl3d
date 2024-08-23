@@ -120,7 +120,7 @@ SDL_Texture *trs_LoadPNG(const char *filename) {
     return out;
 }
 
-static uint8_t *trs_LoadFile(const char *filename, int *size) {
+uint8_t *trs_LoadFile(const char *filename, int *size) {
     FILE* file = fopen(filename, "rb");
     trs_Assert(file != NULL);
 	unsigned char *buffer = NULL;

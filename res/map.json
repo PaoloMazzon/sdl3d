@@ -1,0 +1,11 @@
+{
+    "walls": [
+        {
+            "type": "2x2",
+            "position": [2, 0, 2],
+            "final_position": [-2, 0, 2],
+            "move": 2,
+            "stop": 2
+        }
+    ]
+}
