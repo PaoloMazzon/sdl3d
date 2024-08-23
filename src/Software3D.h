@@ -1,6 +1,7 @@
 /// \file Software3D.h
 /// \brief Declares the software 3D renderer using SDL_RenderGeometry
 #pragma once
+#include <SDL2/SDL.h>
 #include <cglm/cglm.h>
 
 typedef enum {

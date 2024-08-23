@@ -69,6 +69,7 @@ typedef struct Level_t {
     int chunkCount; // Number of chunks
     Wall *mostRecentWall; // whatever wall was collided with most recently
     double startTime;
+    SaveLevelInfo save;
 } Level;
 
 typedef struct Menu_t {

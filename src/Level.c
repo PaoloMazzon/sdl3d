@@ -187,9 +187,67 @@ void updateWall(GameState *game, Level *level, Wall *wall) {
     }
 }
 
+static float parseFloat(cJSON *num, float def) {
+    if (num != NULL && cJSON_IsNumber(num))
+        return cJSON_GetNumberValue(num);
+    return def;
+}
+
+static void parseCoords(cJSON *list, vec3 out) {
+    if (list != NULL && cJSON_IsArray(list) && cJSON_GetArraySize(list) == 3) {
+        out[0] = parseFloat(cJSON_GetArrayItem(list, 0), 0);
+        out[1] = parseFloat(cJSON_GetArrayItem(list, 1), 0);
+        out[2] = parseFloat(cJSON_GetArrayItem(list, 2), 0);
+    }
+}
+
+static bool parseWall(GameState *game, cJSON *wallJSON, Wall *wall) {
+    cJSON *type = cJSON_GetObjectItem(wallJSON, "type");
+    cJSON *position = cJSON_GetObjectItem(wallJSON, "position");
+    cJSON *finalPosition = cJSON_GetObjectItem(wallJSON, "final_position");
+    cJSON *move = cJSON_GetObjectItem(wallJSON, "move");
+    cJSON *stop = cJSON_GetObjectItem(wallJSON, "stop");
+    if (type != NULL && cJSON_IsString(type)) {
+        parseCoords(position, wall->position);
+        parseCoords(finalPosition, wall->endMove);
+        wall->stayTime = parseFloat(stop, 0);
+        wall->moveFactor = parseFloat(move, 0);
+
+        if (strcmp(cJSON_GetStringValue(type), "2x2") == 0) {
+            wall->model = game->platformModel;
+            return true;
+        }
+    }
+    return false;
+}
+
 // Loads a level from a csv
-void loadLevel(GameState *game, Level *level, const char *filename) {
-    // TODO: This
+bool loadLevel(GameState *game, Level *level, const char *filename) {
+    // Parse json
+    int size;
+    uint8_t *fileString = trs_LoadFile(filename, &size);
+    fileString = realloc(fileString, size + 1);
+    fileString[size] = 0;
+    cJSON *json = cJSON_Parse(fileString);
+
+    if (cJSON_HasObjectItem(json, "walls")) {
+        // Parse level
+        cJSON *wallList = cJSON_GetObjectItem(json, "walls");
+        int size = cJSON_GetArraySize(wallList);
+        
+        // Parse individual wall
+        for (int i = 0; i < size; i++) {
+            Wall wall = {0};
+            if (parseWall(game, cJSON_GetArrayItem(wallList, i), &wall))
+                addWall(level, &wall);
+        }
+    } else {
+        return false;
+    }
+
+    cJSON_Delete(json);
+    free(fileString);
+    return true;
 }
 
 //******************************** Level ********************************//
@@ -205,37 +263,7 @@ void levelCreate(GameState *game) {
     // Various
     game->level.startTime = game->time;
 
-    // Setup walls
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {3, 0, 0}
-    }));
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {0, 3, 2}
-    }));
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {-3, 0, 4}
-    }));
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {0, -3, 6},
-        .endMove = {4, -3, 6},
-        .stayTime = 1,
-        .moveFactor = 2
-    }));
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {6, 6, 0},
-        .endMove = {6, 6, 6},
-        .stayTime = 1,
-        .moveFactor = 2
-    }));
-    addWall(&game->level, &((Wall){
-        .model = game->platformModel,
-        .position = {-12, 12, 1}
-    }));
+    loadLevel(game, &game->level, "res/map.json");
 }
 
 void levelDestroy(GameState *game) {
