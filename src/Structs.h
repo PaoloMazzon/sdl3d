@@ -4,7 +4,9 @@
 #include "Software3D.h"
 #pragma once
 
-#define MENU_FADE_TIME 1
+#define MENU_FADE_TIME 1.0f
+#define MESSAGE_BUFFER_SIZE 1024
+#define MESSAGE_TIME 4.0f
 
 typedef enum {
     GAME_ROOM_MENU = 0,
@@ -54,7 +56,11 @@ typedef struct Wall_t {
 
 typedef struct Checkpoint_t {
     vec3 position;
-    int id;
+    bool final; // if its the end of the level or not
+    int index;
+    float time; // time the player hit this checkpoint
+    bool playerHit; // If the player has hit this checkpoint this level
+    bool active;
 } Checkpoint;
 
 typedef struct Chunk_t {
@@ -70,6 +76,9 @@ typedef struct Level_t {
     Wall *mostRecentWall; // whatever wall was collided with most recently
     double startTime;
     SaveLevelInfo save;
+    char messageBuffer[MESSAGE_BUFFER_SIZE];
+    double messageTime;
+    int checkpointID; // for assigning checkpoint ids
 } Level;
 
 typedef struct Menu_t {

@@ -50,22 +50,35 @@ static Chunk *getChunkAtPosition(Level *level, float x, float y) {
     return getChunkAtIndex(level, index);
 }
 
-// Iterator for walls
+// Iterators
 typedef struct WallIterator_t {
     int chunks[3];
     int chunkCount;
     int chunkIndex;
-    int wallIndex;
+    int iteratorIndex;
 } WallIterator;
+typedef struct WallIterator_t CheckpointIterator;
 
 static Wall *getWallsNext(Level *level, WallIterator *iter) {
     for (; iter->chunkIndex < iter->chunkCount; iter->chunkIndex++) {
         Chunk *chunk = &level->chunks[iter->chunks[iter->chunkIndex]];
-        if (iter->wallIndex < chunk->wallCount) {
-            iter->wallIndex++;
-            return &chunk->walls[iter->wallIndex - 1];
+        if (iter->iteratorIndex < chunk->wallCount) {
+            iter->iteratorIndex++;
+            return &chunk->walls[iter->iteratorIndex - 1];
         }
-        iter->wallIndex = 0;
+        iter->iteratorIndex = 0;
+    }
+    return NULL;
+}
+
+static Checkpoint *getCheckpointNext(Level *level, CheckpointIterator *iter) {
+    for (; iter->chunkIndex < iter->chunkCount; iter->chunkIndex++) {
+        Chunk *chunk = &level->chunks[iter->chunks[iter->chunkIndex]];
+        if (iter->iteratorIndex < chunk->checkpointCount) {
+            iter->iteratorIndex++;
+            return &chunk->checkpoints[iter->iteratorIndex - 1];
+        }
+        iter->iteratorIndex = 0;
     }
     return NULL;
 }
@@ -74,7 +87,7 @@ static Wall *getWallsStart(GameState *game, Level *level, WallIterator *iter) {
     // Get the chunk on the player
     const int chunk = getChunkIndex(game->player.x, game->player.y);
     iter->chunkCount = 0;
-    iter->wallIndex = 0;
+    iter->iteratorIndex = 0;
     iter->chunkIndex = 0;
 
     // Count the chunks in range of the player
@@ -87,6 +100,24 @@ static Wall *getWallsStart(GameState *game, Level *level, WallIterator *iter) {
     return getWallsNext(level, iter);
 }
 
+static Checkpoint *getCheckpointsStart(GameState *game, Level *level, CheckpointIterator *iter) {
+    // Get the chunk on the player
+    const int chunk = getChunkIndex(game->player.x, game->player.y);
+    iter->chunkCount = 0;
+    iter->iteratorIndex = 0;
+    iter->chunkIndex = 0;
+
+    // Count the chunks in range of the player
+    if (chunk < level->chunkCount)
+        iter->chunks[iter->chunkCount++] = chunk;
+    if (chunk + 1 < level->chunkCount)
+        iter->chunks[iter->chunkCount++] = chunk + 1;
+    if (chunk != 0 && level->chunkCount > 1)
+        iter->chunks[iter->chunkCount++] = chunk - 1;
+    return getCheckpointNext(level, iter);
+}
+
+//******************************** Gameworld things ********************************//
 // Adds a wall to the proper chunk
 void addWall(Level *level, Wall *wall) {
     // Get the chunk associated with this position
@@ -115,6 +146,76 @@ void addWall(Level *level, Wall *wall) {
     chunk->walls[spot].startMove[2] = chunk->walls[spot].position[2];
     if (chunk->walls[spot].hitbox == NULL)
         chunk->walls[spot].hitbox = trs_GetModelHitbox(chunk->walls[spot].model);
+}
+
+// Adds a checkpoint to the proper chunk
+void addCheckpoint(Level *level, Checkpoint *checkpoint) {
+    // Get the chunk associated with this position
+    Chunk *chunk = getChunkAtPosition(level, checkpoint->position[0], checkpoint->position[1]);
+
+    // Search for an open wall slot first
+    int spot = -1;
+    for (int i = 0; i < chunk->checkpointCount && spot == -1; i++)
+        if (chunk->checkpoints[i].active == false)
+            spot = i;
+    
+    // Extend the list
+    if (spot == -1) {
+        chunk->checkpoints = realloc(chunk->checkpoints, (chunk->checkpointCount + 10) * sizeof(struct Checkpoint_t));
+        for (int i = chunk->checkpointCount; i < chunk->checkpointCount + 10; i++)
+            chunk->checkpoints[i].active = false;
+        spot = chunk->checkpointCount;
+        chunk->checkpointCount += 10;
+    }
+
+    // Extend save chunk list
+
+    // Copy the wall
+    chunk->checkpoints[spot].playerHit = false;
+    chunk->checkpoints[spot].active = true;
+    chunk->checkpoints[spot].time = 0;
+    chunk->checkpoints[spot].index = level->checkpointID++;
+    chunk->checkpoints[spot].position[0] = checkpoint->position[0];
+    chunk->checkpoints[spot].position[1] = checkpoint->position[1];
+    chunk->checkpoints[spot].position[2] = checkpoint->position[2];
+}
+
+void updateCheckpoint(GameState *game, Level *level, Checkpoint *checkpoint) {
+    if (!checkpoint->playerHit && glm_vec3_distance2((vec3){game->player.x, game->player.y, game->player.z}, checkpoint->position) < 1) {
+        checkpoint->playerHit = true;
+        const double time = game->time - level->startTime;
+        levelDisplayMessage(game, "Checkpoint %i: =%02d:%02d:%03d", checkpoint->index + 1, (int)(time / 60), (int)(fmodf(time, 60)), (int)(fmodf(time * 1000, 1000)));
+        checkpoint->time = time;
+    }
+    // TODO: Handle the player hitting the last checkpoint
+}
+
+void updateWall(GameState *game, Level *level, Wall *wall) {
+    wall->time += game->delta * (1 / wall->moveFactor);
+    if (wall->time < 1) {    
+        wall->velocity[0] = (wall->endMove[0] - wall->startMove[0]) / (wall->moveFactor);
+        wall->velocity[1] = (wall->endMove[1] - wall->startMove[1]) / (wall->moveFactor);
+        wall->velocity[2] = (wall->endMove[2] - wall->startMove[2]) / (wall->moveFactor);
+    } else {
+        wall->velocity[0] = 0;
+        wall->velocity[1] = 0;
+        wall->velocity[2] = 0;
+    }
+
+    wall->position[0] += wall->velocity[0] * game->delta;
+    wall->position[1] += wall->velocity[1] * game->delta;
+    wall->position[2] += wall->velocity[2] * game->delta;
+
+    if (wall->time > 1 + wall->stayTime) {
+        vec3 vec = {wall->startMove[0], wall->startMove[1], wall->startMove[2]};
+        wall->startMove[0] = wall->endMove[0];
+        wall->startMove[1] = wall->endMove[1];
+        wall->startMove[2] = wall->endMove[2];
+        wall->endMove[0] = vec[0];
+        wall->endMove[1] = vec[1];
+        wall->endMove[2] = vec[2];
+        wall->time = 0;
+    }
 }
 
 //******************************** Helpers ********************************//
@@ -159,33 +260,7 @@ bool touchingWall(GameState *game, Level *level, trs_Hitbox hitbox, float x, flo
     return false;
 }
 
-void updateWall(GameState *game, Level *level, Wall *wall) {
-    wall->time += game->delta * (1 / wall->moveFactor);
-    if (wall->time < 1) {    
-        wall->velocity[0] = (wall->endMove[0] - wall->startMove[0]) / (wall->moveFactor);
-        wall->velocity[1] = (wall->endMove[1] - wall->startMove[1]) / (wall->moveFactor);
-        wall->velocity[2] = (wall->endMove[2] - wall->startMove[2]) / (wall->moveFactor);
-    } else {
-        wall->velocity[0] = 0;
-        wall->velocity[1] = 0;
-        wall->velocity[2] = 0;
-    }
-
-    wall->position[0] += wall->velocity[0] * game->delta;
-    wall->position[1] += wall->velocity[1] * game->delta;
-    wall->position[2] += wall->velocity[2] * game->delta;
-
-    if (wall->time > 1 + wall->stayTime) {
-        vec3 vec = {wall->startMove[0], wall->startMove[1], wall->startMove[2]};
-        wall->startMove[0] = wall->endMove[0];
-        wall->startMove[1] = wall->endMove[1];
-        wall->startMove[2] = wall->endMove[2];
-        wall->endMove[0] = vec[0];
-        wall->endMove[1] = vec[1];
-        wall->endMove[2] = vec[2];
-        wall->time = 0;
-    }
-}
+//******************************** Level loading ********************************//
 
 static float parseFloat(cJSON *num, float def) {
     if (num != NULL && cJSON_IsNumber(num))
@@ -261,9 +336,11 @@ void levelCreate(GameState *game) {
     camera->rotationZ = -atan2f(camera->eyes[2] - game->player.z, sqrtf(powf(camera->eyes[1] - game->player.y, 2) + pow(camera->eyes[0] - game->player.x, 2)));
 
     // Various
+    game->level.checkpointID = 0;
     game->level.startTime = game->time;
 
     loadLevel(game, &game->level, "res/map.json");
+    addCheckpoint(&game->level, &((Checkpoint){.position = {5, 0, 0}}));
 }
 
 void levelDestroy(GameState *game) {
@@ -290,6 +367,17 @@ bool levelUpdate(GameState *game) {
             trs_DrawModelExt(wall->model, wall->position[0], wall->position[1], wall->position[2], 1, 1, 1, 0, 0, 0);
         }
         wall = getWallsNext(&game->level, &iter);
+    }
+
+    // Checkpoints
+    CheckpointIterator checkIter;
+    Checkpoint *checkpoint = getCheckpointsStart(game, &game->level, &checkIter);
+    while (checkpoint != NULL) {
+        if (checkpoint->active) {
+            updateCheckpoint(game, &game->level, checkpoint);
+            trs_DrawModelExt(game->flagModel, checkpoint->position[0], checkpoint->position[1], checkpoint->position[2], 1, 1, 1, 0, 0, 0);
+        }
+        checkpoint = getCheckpointNext(&game->level, &checkIter);
     }
 
     return true;
@@ -320,6 +408,25 @@ void levelDrawUI(GameState *game) {
     trs_DrawFont(game->font, 256 - (len * 7), 224 - 9, "%s", buffer);
     trs_DrawFont(game->font, 1, 8 * 2, "Player: %0.0f,%0.0f,%0.0f", game->player.x, game->player.y, game->player.z);
 
+    // Message buffer if there is one active
+    if (game->level.messageTime > 0) {
+
+        // Calculate the message fade in/out
+        float percent = 1;
+        if (game->level.messageTime < 1) {
+            percent = game->level.messageTime;
+        } else if (game->level.messageTime > MESSAGE_TIME - 1) {
+            percent = 1 - (game->level.messageTime - (MESSAGE_TIME - 1));
+        }
+        // TODO: SLERP PERCENT
+
+        const int len = strlen(game->level.messageBuffer);
+        const float xPos = (256 / 2) - (len * 7 * 0.5);
+        const float yPos = -8 + (50 * percent);
+        trs_DrawFont(game->font, xPos, yPos, "%s", game->level.messageBuffer);
+        game->level.messageTime -= game->delta;
+        
+    }
     
     // Hint
     SDL_RenderCopy(game->renderer, game->hintTex, NULL, &((SDL_Rect){.x = 0, .y = 205, .w = 81, .h = 19}));
@@ -342,4 +449,12 @@ void levelDrawUI(GameState *game) {
     SDL_RenderDrawLine(game->renderer, startX, startY, startX, startY - (verticalPercent * 20));
     SDL_SetRenderDrawColor(game->renderer, 0, 0, 0, 255);
     SDL_RenderDrawPoint(game->renderer, startX, startY);
+}
+
+void levelDisplayMessage(GameState *game, const char *message, ...) {
+    va_list l;
+    va_start(l, message);
+    vsnprintf(game->level.messageBuffer, MESSAGE_BUFFER_SIZE - 1, message, l);
+    va_end(l);
+    game->level.messageTime = MESSAGE_TIME;
 }

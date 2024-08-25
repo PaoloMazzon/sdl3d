@@ -82,6 +82,12 @@ void gameStart(GameState *game) {
 
 void gameEnd(GameState *game) {
     gameSave(game);
+    // Free the saves
+    for (int i = 0; i < game->save.saveCount; i++) {
+        free(game->save.saves[i].checkpointBestTimes);
+        free((void*)game->save.saves[i].levelName);
+    }
+
     levelDestroy(game);
     playerDestroy(game, &game->player);
     trs_FreeFont(game->font);

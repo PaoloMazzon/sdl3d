@@ -305,7 +305,7 @@ void trs_DrawFont(trs_Font font, float x, float y, const char *fmt, ...) {
     char buffer[1024];
     va_list list;
     va_start(list, fmt);
-    vsnprintf(buffer, 1024, fmt, list);
+    vsnprintf(buffer, 1023, fmt, list);
     va_end(list);
     char *string = buffer;
 
